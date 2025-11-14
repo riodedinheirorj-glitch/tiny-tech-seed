@@ -101,7 +101,7 @@ serve(async (req) => {
                 user_id: purchase.user_id,
                 credits: newBalance,
                 updated_at: new Date().toISOString()
-              });
+              }, { onConflict: 'user_id' }); // Use upsert to create if not exists
             
             if (creditsError) {
               console.error('Error updating credits:', creditsError);

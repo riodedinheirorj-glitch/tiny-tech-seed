@@ -16,11 +16,28 @@ export async function getUserRole(userId: string) {
 }
 
 export async function getProfiles() {
-  const { data, error } = await (supabase as any)
+  const { data: profilesData, error: profilesError } = await (supabase as any)
     .from("profiles")
-    .select("id, email, full_name, credits");
+    .select("id, email, full_name");
   
-  return { data, error };
+  if (profilesError) return { data: null, error: profilesError };
+
+  const userIds = profilesData.map((p: any) => p.id);
+  const { data: userCreditsData, error: creditsError } = await (supabase as any)
+    .from("user_credits")
+    .select("user_id, credits")
+    .in("user_id", userIds);
+
+  if (creditsError) return { data: null, error: creditsError };
+
+  const creditsMap = new Map(userCreditsData.map((uc: any) => [uc.user_id, uc.credits]));
+
+  const profilesWithCredits = profilesData.map((profile: any) => ({
+    ...profile,
+    credits: creditsMap.get(profile.id) || 0,
+  }));
+  
+  return { data: profilesWithCredits, error: null };
 }
 
 export async function getDownloads(userId: string) {
@@ -40,32 +57,42 @@ export async function insertDownload(userId: string, fileName: string) {
 }
 
 export async function getUserCredits(userId: string) {
-  const { data } = await (supabase as any)
-    .from("profiles")
+  const { data, error } = await (supabase as any)
+    .from("user_credits")
     .select("credits")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .single();
   
+  if (error && error.code === 'PGRST116') { // No rows found
+    return 0;
+  }
+  if (error) {
+    console.error("Error fetching user credits:", error);
+    throw error;
+  }
   return data?.credits || 0;
 }
 
 export async function deductCredit(userId: string) {
-  const { data: profile } = await (supabase as any)
-    .from("profiles")
+  const { data: userCredits, error: fetchError } = await (supabase as any)
+    .from("user_credits")
     .select("credits")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .single();
   
-  if (!profile || profile.credits < 1) {
+  if (fetchError && fetchError.code === 'PGRST116') { // No rows found
+    return { success: false, error: "Créditos insuficientes" };
+  }
+  if (fetchError || !userCredits || userCredits.credits < 1) {
     return { success: false, error: "Créditos insuficientes" };
   }
   
-  const { error } = await (supabase as any)
-    .from("profiles")
-    .update({ credits: profile.credits - 1 })
-    .eq("id", userId);
+  const { error: updateError } = await (supabase as any)
+    .from("user_credits")
+    .update({ credits: userCredits.credits - 1 })
+    .eq("user_id", userId);
   
-  if (error) return { success: false, error: error.message };
+  if (updateError) return { success: false, error: updateError.message };
   
   // Register transaction
   await (supabase as any).from("transactions").insert({
@@ -75,6 +102,41 @@ export async function deductCredit(userId: string) {
     description: "Download de planilha"
   });
   
+  return { success: true };
+}
+
+export async function addInitialCredits(userId: string, creditsToAdd: number) {
+  const { data: userCredits, error: fetchError } = await (supabase as any)
+    .from("user_credits")
+    .select("credits")
+    .eq("user_id", userId)
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+    console.error("Error fetching user credits for initial add:", fetchError);
+    return { success: false, error: fetchError.message };
+  }
+
+  const currentCredits = userCredits?.credits || 0;
+  const newCredits = currentCredits + creditsToAdd;
+
+  const { error: upsertError } = await (supabase as any)
+    .from("user_credits")
+    .upsert({ user_id: userId, credits: newCredits }, { onConflict: 'user_id' });
+
+  if (upsertError) {
+    console.error("Error upserting initial credits:", upsertError);
+    return { success: false, error: upsertError.message };
+  }
+
+  // Register transaction
+  await (supabase as any).from("transactions").insert({
+    user_id: userId,
+    type: "initial_signup_bonus", 
+    amount: creditsToAdd,
+    description: `Créditos de boas-vindas no cadastro`
+  });
+
   return { success: true };
 }
 
@@ -126,17 +188,16 @@ export async function approvePurchase(purchaseId: string, adminId: string) {
   
   if (updateError) return { success: false, error: updateError.message };
   
-  // Add credits to user
-  const { data: profile } = await (supabase as any)
-    .from("profiles")
+  // Add credits to user in user_credits table
+  const { data: userCredits } = await (supabase as any)
+    .from("user_credits")
     .select("credits")
-    .eq("id", purchase.user_id)
+    .eq("user_id", purchase.user_id)
     .single();
   
   const { error: creditsError } = await (supabase as any)
-    .from("profiles")
-    .update({ credits: (profile?.credits || 0) + purchase.credits })
-    .eq("id", purchase.user_id);
+    .from("user_credits")
+    .upsert({ user_id: purchase.user_id, credits: (userCredits?.credits || 0) + purchase.credits }, { onConflict: 'user_id' });
   
   if (creditsError) return { success: false, error: creditsError.message };
   
@@ -152,20 +213,24 @@ export async function approvePurchase(purchaseId: string, adminId: string) {
 }
 
 export async function updateUserCredits(userId: string, amount: number, adminId: string) {
-  const { data: profile } = await (supabase as any)
-    .from("profiles")
+  const { data: userCredits, error: fetchError } = await (supabase as any)
+    .from("user_credits")
     .select("credits")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .single();
   
-  const newCredits = Math.max(0, (profile?.credits || 0) + amount);
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+    return { success: false, error: fetchError.message };
+  }
+
+  const currentCredits = userCredits?.credits || 0;
+  const newCredits = Math.max(0, currentCredits + amount);
   
-  const { error } = await (supabase as any)
-    .from("profiles")
-    .update({ credits: newCredits })
-    .eq("id", userId);
+  const { error: updateError } = await (supabase as any)
+    .from("user_credits")
+    .upsert({ user_id: userId, credits: newCredits }, { onConflict: 'user_id' });
   
-  if (error) return { success: false, error: error.message };
+  if (updateError) return { success: false, error: updateError.message };
   
   // Register transaction
   await (supabase as any).from("transactions").insert({

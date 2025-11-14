@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { z } from "zod";
-import { getUserRole } from "@/lib/supabase-helpers";
+import { getUserRole, addInitialCredits } from "@/lib/supabase-helpers";
 import { Eye, EyeOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
@@ -193,7 +193,7 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -206,9 +206,16 @@ export default function Auth() {
 
       if (error) throw error;
 
+      // Get the newly created user's ID and add initial credits
+      const newUserId = data.user?.id;
+      if (newUserId) {
+        const initialCreditsAmount = 3;
+        await addInitialCredits(newUserId, initialCreditsAmount);
+        setWelcomeCredits(initialCreditsAmount);
+      }
+      
       // Disparar confetes e mostrar popup de boas-vindas
       triggerConfetti();
-      setWelcomeCredits(3);
       setShowWelcome(true);
 
       toast.success("Conta criada com sucesso! Você já pode fazer login.");
