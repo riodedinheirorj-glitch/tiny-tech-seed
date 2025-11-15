@@ -21,7 +21,8 @@ interface AdminSetupDialogProps {
 }
 
 export function AdminSetupDialog({ open, onOpenChange }: AdminSetupDialogProps) {
-  const [setupToken, setSetupToken] = useState("");
+  // Pre-fill with the user's specified token
+  const [setupToken, setSetupToken] = useState("admin-setup-d7f8e9a2-4b3c-11ef-9a1d-8c8590a5c2f1");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
@@ -46,12 +47,19 @@ export function AdminSetupDialog({ open, onOpenChange }: AdminSetupDialogProps) 
       if (data.success || data.message === "Admin user already exists") {
         setSuccess(true);
         setCredentials(data.credentials);
-        toast.success(data.message);
+        // Detailed success message as requested
+        toast.success(
+          `Admin criado com sucesso! Email: ${data.credentials.email}, Senha: ${data.credentials.password}`,
+          {
+            description: "Lembre-se de alterar a senha imediatamente em produção!"
+          }
+        );
       } else {
         throw new Error(data.error || "Erro ao criar administrador");
       }
     } catch (error: any) {
       console.error("Error setting up admin:", error);
+      // The Edge Function already returns a clear message for 401, which will be displayed here.
       toast.error(error.message || "Erro ao criar administrador");
     } finally {
       setLoading(false);
@@ -59,7 +67,7 @@ export function AdminSetupDialog({ open, onOpenChange }: AdminSetupDialogProps) 
   };
 
   const handleClose = () => {
-    setSetupToken("");
+    setSetupToken("admin-setup-d7f8e9a2-4b3c-11ef-9a1d-8c8590a5c2f1"); // Reset to default
     setSuccess(false);
     setCredentials(null);
     onOpenChange(false);
