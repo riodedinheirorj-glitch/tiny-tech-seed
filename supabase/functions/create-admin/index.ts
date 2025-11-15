@@ -39,16 +39,19 @@ serve(async (req) => {
 
     // Check if admin already exists
     const { data: existingAdmin } = await supabaseAdmin
-      .from("profiles")
-      .select("id, email")
-      .eq("email", "admin@deliveryflow.com")
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin")
+      .limit(1)
       .maybeSingle();
 
     if (existingAdmin) {
+      console.log("Admin role already exists for user:", existingAdmin.user_id);
       return new Response(
         JSON.stringify({ 
           message: "Admin user already exists",
           email: "admin@deliveryflow.com",
+          password: "admin@123",
           note: "Use these credentials to login"
         }),
         { 
@@ -59,9 +62,10 @@ serve(async (req) => {
     }
 
     // Create admin user
+    console.log("Creating admin user...");
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: "admin@deliveryflow.com",
-      password: "admin",
+      password: "admin@123",
       email_confirm: true,
       user_metadata: {
         full_name: "Administrador",
@@ -69,8 +73,11 @@ serve(async (req) => {
     });
 
     if (authError) {
+      console.error("Error creating auth user:", authError);
       throw authError;
     }
+
+    console.log("Admin user created in auth:", authData.user.id);
 
     // Add admin role
     const { error: roleError } = await supabaseAdmin
@@ -81,8 +88,11 @@ serve(async (req) => {
       });
 
     if (roleError && !roleError.message.includes("duplicate")) {
+      console.error("Error adding admin role:", roleError);
       throw roleError;
     }
+
+    console.log("Admin role added successfully");
 
     return new Response(
       JSON.stringify({ 
@@ -90,7 +100,7 @@ serve(async (req) => {
         message: "Admin user created successfully",
         credentials: {
           email: "admin@deliveryflow.com",
-          password: "admin"
+          password: "admin@123"
         },
         warning: "⚠️ CHANGE THIS PASSWORD IMMEDIATELY IN PRODUCTION!"
       }),
