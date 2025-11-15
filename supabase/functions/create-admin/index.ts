@@ -11,13 +11,17 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log("create-admin function invoked."); // Log de invocação
   try {
     // Verify setup token for security
     const setupToken = req.headers.get("X-Setup-Token");
     const expectedToken = Deno.env.get("ADMIN_SETUP_TOKEN");
     
+    console.log("Received X-Setup-Token:", setupToken); // Log do token recebido
+    console.log("Expected ADMIN_SETUP_TOKEN:", expectedToken); // Log do token esperado
+
     if (!expectedToken || setupToken !== expectedToken) {
-      console.error("Unauthorized admin creation attempt");
+      console.error("Unauthorized admin creation attempt: Token mismatch or missing expected token."); // Log de erro detalhado
       return new Response(
         JSON.stringify({ error: "Unauthorized. Valid setup token required." }),
         { 
@@ -111,6 +115,7 @@ serve(async (req) => {
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("Error in create-admin function:", errorMessage); // Log de erro geral
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
