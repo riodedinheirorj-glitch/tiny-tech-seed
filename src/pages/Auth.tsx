@@ -11,6 +11,7 @@ import { getUserRole, addInitialCredits } from "@/lib/supabase-helpers";
 import { Eye, EyeOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
+import { AdminSetupDialog } from "@/components/AdminSetupDialog";
 
 // Função para traduzir erros do Supabase
 const translateSupabaseError = (errorMessage: string): string => {
@@ -50,6 +51,7 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
+  const [showAdminSetup, setShowAdminSetup] = useState(false);
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -133,22 +135,7 @@ export default function Auth() {
       // Check if user is admin
       const roles = await getUserRole(data.user.id);
 
-      // Verificar se é o primeiro login do usuário
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('created_at')
-        .eq('email', email.trim().toLowerCase())
-        .single();
-
-      const isFirstLogin = profile && new Date(profile.created_at).getTime() > Date.now() - 60000; // Criado nos últimos 60 segundos
-
-      if (isFirstLogin) {
-        triggerConfetti();
-        setWelcomeCredits(3);
-        setShowWelcome(true);
-      } else {
-        toast.success("Login realizado com sucesso!");
-      }
+      toast.success("Login realizado com sucesso!");
       
       // Redirect to admin dashboard if user is admin, otherwise to home
       setTimeout(() => {
@@ -157,21 +144,10 @@ export default function Auth() {
         } else {
           navigate("/");
         }
-      }, isFirstLogin ? 100 : 0);
+      }, 0);
     } catch (error: any) {
-      // Verificar se o email existe no banco de dados
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', email.trim().toLowerCase())
-        .maybeSingle();
-
-      if (!profile) {
-        toast.error("Este email não está cadastrado. Por favor, faça o cadastro primeiro.");
-      } else {
-        const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
-        toast.error(errorMessage);
-      }
+      const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -305,6 +281,10 @@ export default function Auth() {
         open={showWelcome} 
         onClose={() => setShowWelcome(false)} 
         credits={welcomeCredits}
+      />
+      <AdminSetupDialog
+        open={showAdminSetup}
+        onOpenChange={setShowAdminSetup}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">
@@ -502,6 +482,13 @@ export default function Auth() {
                 className="text-primary hover:underline block relative z-10"
               >
                 Não tem conta? Criar uma
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdminSetup(true)}
+                className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
+              >
+                Setup Admin
               </button>
             </>
           )}

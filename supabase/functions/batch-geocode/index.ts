@@ -7,15 +7,15 @@ const LOCATIONIQ_API_URL = "https://us1.locationiq.com/v1/search.php";
 const RATE_LIMIT_DELAY = 500; // 0.5 seconds to respect 2 requests per second limit
 const DEFAULT_COUNTRY_CODE = "Brazil"; // For LocationIQ, use full country name
 // Helpers
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((r)=>setTimeout(r, ms));
 }
-function normalizeText(s) {
+function normalizeText(s: string) {
   if (!s) return "";
   const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
 }
-function buildLocationIQQueryParam(row) {
+function buildLocationIQQueryParam(row: any) {
   const parts = [];
   if (row.rawAddress) parts.push(row.rawAddress);
   if (row.bairro) parts.push(row.bairro);
@@ -23,7 +23,7 @@ function buildLocationIQQueryParam(row) {
   if (row.estado) parts.push(row.estado);
   return parts.join(", ");
 }
-function addressMatchesExpected(locationiqAddress, expected) {
+function addressMatchesExpected(locationiqAddress: any, expected: any) {
   if (!locationiqAddress) return false;
   const gotCity = locationiqAddress.city || locationiqAddress.town || locationiqAddress.village || "";
   const gotCounty = locationiqAddress.county || "";
@@ -46,7 +46,7 @@ function addressMatchesExpected(locationiqAddress, expected) {
   }
   return cityMatches && stateMatches && bairroMatches;
 }
-async function locationiqSearch(query) {
+async function locationiqSearch(query: string) {
   const LOCATIONIQ_API_KEY = Deno.env.get('LOCATIONIQ_API_KEY');
   if (!LOCATIONIQ_API_KEY) {
     throw new Error('LOCATIONIQ_API_KEY not configured in environment variables.');
