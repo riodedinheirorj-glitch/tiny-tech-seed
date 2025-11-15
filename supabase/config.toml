@@ -1,5 +1,8 @@
 project_id = "kpjyqgpvfbnsgpzkywrk"
 
+[functions.create-admin]
+verify_jwt = false
+
 [functions.abacate-pix-qrcode]
 verify_jwt = true
 
