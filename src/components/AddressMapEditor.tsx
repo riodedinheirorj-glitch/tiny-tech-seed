@@ -89,7 +89,7 @@ export default function AddressMapEditor({
           <p className="text-sm text-muted-foreground mt-1">{addressName}</p>
         </DialogHeader>
         <div className="p-6 pt-4">
-          <div className="h-[400px] w-full rounded-lg overflow-hidden border border-primary/30 shadow-lg">
+          <div className="h-[300px] sm:h-[400px] w-full rounded-lg overflow-hidden border border-primary/30 shadow-lg">
             <MapContainer
               center={position}
               zoom={15}
