@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProcessedAddress } from "@/lib/nominatim-service"; // Import new interface
+import { useNavigate } from "react-router-dom";
+
 interface ResultsStepProps {
   data: ProcessedAddress[]; // Use new interface
   onExport: (format: 'xlsx' | 'csv') => void;
@@ -16,6 +18,7 @@ const ResultsStep = ({
   onReset,
   totalSequences
 }: ResultsStepProps) => {
+  const navigate = useNavigate();
   const totalStops = data.length;
 
   // Get all unique column names from the data, including new ones
@@ -130,7 +133,7 @@ const ResultsStep = ({
                            {row.status === 'pending' && <MapPinOff className="ml-1 h-3 w-3" />}
                         </span>
                       ) : (
-                        String(row[col] ?? '')
+                        String(row[col as keyof ProcessedAddress] ?? '')
                       )}
                     </TableCell>)}
                 </TableRow>)}

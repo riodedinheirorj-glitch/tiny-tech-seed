@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { User, LogOut, Shield, Coins, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook to access location state
   const [currentStep, setCurrentStep] = useState(1);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("Aguardando início...");
@@ -25,7 +26,8 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [credits, setCredits] = useState(0);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
-  
+  const [totalSequencesCount, setTotalSequencesCount] = useState(0); // State for total sequences
+
   useEffect(() => {
     // Check auth state
     supabase.auth.getSession().then(({
@@ -56,6 +58,18 @@ const Index = () => {
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Handle data coming back from LocationAdjustments page
+  useEffect(() => {
+    if (location.state?.adjustedData && location.state?.fromAdjustments) {
+      setProcessedData(location.state.adjustedData);
+      setTotalSequencesCount(location.state.adjustedData.reduce((sum: number, row: ProcessedAddress) => sum + (row.sequences ? String(row.sequences).split('; ').length : 1), 0));
+      setCurrentStep(3); // Move to results step
+      // Clear state to prevent re-triggering on subsequent visits
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
   const checkAdminStatus = async (userId: string) => {
     const data = await getUserRole(userId);
     setIsAdmin(!!data);
@@ -200,16 +214,15 @@ const Index = () => {
       setProgress(90);
       setStatus("Finalizando...");
       await new Promise(resolve => setTimeout(resolve, 500));
+      
       setProcessedData(results);
-
-      // Store total count
-      (window as any).totalSequencesCount = jsonData.length;
+      setTotalSequencesCount(jsonData.length); // Store total count of original sequences
       setProgress(100);
       setIsProcessing(false);
 
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setCurrentStep(3);
-      toast.success(`Processamento concluído! ${results.length} endereços únicos de ${jsonData.length} registros`);
+      // Navigate to the new adjustment page
+      navigate("/adjust-locations", { state: { initialProcessedData: results } });
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
       toast.error(error instanceof Error ? error.message : "Verifique o formato e tente novamente.");
@@ -223,6 +236,7 @@ const Index = () => {
     setStatus("Aguardando início...");
     setProcessedData([]);
     setIsProcessing(false);
+    setTotalSequencesCount(0);
   };
   const handleExport = async (format: 'xlsx' | 'csv') => {
     if (!user) {
@@ -346,7 +360,7 @@ const Index = () => {
           
           {currentStep === 2 && <ProcessingStep progress={progress} status={status} isComplete={!isProcessing && progress === 100} />}
           
-          {currentStep === 3 && <ResultsStep data={processedData} onExport={handleExport} onReset={handleReset} totalSequences={(window as any).totalSequencesCount || processedData.reduce((sum, row) => sum + (row.sequences ? row.sequences.split('; ').length : 1), 0)} />}
+          {currentStep === 3 && <ResultsStep data={processedData} onExport={handleExport} onReset={handleReset} totalSequences={totalSequencesCount} />}
         </div>
       </div>
 
