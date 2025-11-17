@@ -152,12 +152,17 @@ const Index = () => {
       const latColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('latitude') || key.toLowerCase().includes('lat'));
       const lonColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('longitude') || key.toLowerCase().includes('lon'));
 
+      // Find bairro, cidade, estado columns dynamically
+      const bairroColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('bairro') || key.toLowerCase().includes('neighborhood'));
+      const cidadeColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('cidade') || key.toLowerCase().includes('city'));
+      const estadoColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('estado') || key.toLowerCase().includes('state'));
+
       // --- Pre-processamento: Normalização e Aprendizado Automático ---
       const preProcessedData = jsonData.map(row => {
         const rawAddress = String(row[addressColumn] || '').trim();
-        const bairro = String(row.bairro || '').trim();
-        const cidade = String(row.cidade || '').trim();
-        const estado = String(row.estado || '').trim();
+        const bairro = bairroColumn ? String(row[bairroColumn] || '').trim() : '';
+        const cidade = cidadeColumn ? String(row[cidadeColumn] || '').trim() : '';
+        const estado = estadoColumn ? String(row[estadoColumn] || '').trim() : '';
 
         let latFromSheet = latColumn ? normalizeCoordinate(row[latColumn]) : undefined;
         let lonFromSheet = lonColumn ? normalizeCoordinate(row[lonColumn]) : undefined;
