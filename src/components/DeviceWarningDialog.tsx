@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } => "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { AlertTriangle, Lock } from "lucide-react";
 
 interface DeviceWarningDialogProps {
