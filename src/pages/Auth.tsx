@@ -54,6 +54,7 @@ export default function Auth() {
   const [welcomeCredits, setWelcomeCredits] = useState(0);
   const [showAdminSetup, setShowAdminSetup] = useState(false);
   const [showDeviceWarning, setShowDeviceWarning] = useState(false); // New state for device warning
+  const [targetRouteAfterLogin, setTargetRouteAfterLogin] = useState<string | null>(null); // To store where to navigate after warning
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -152,26 +153,27 @@ export default function Auth() {
         }
       });
 
+      let shouldShowWarning = false;
       if (deviceTrackError) {
         console.error("Error tracking device login:", deviceTrackError);
-        // Don't block login, but log the error
       } else if (deviceTrackData?.multipleDevicesDetected) {
-        setShowDeviceWarning(true);
+        shouldShowWarning = true;
       }
 
       // Check if user is admin
       const roles = await getUserRole(userId);
+      const destinationRoute = roles ? "/admin" : "/";
 
       toast.success("Login realizado com sucesso!");
       
-      // Redirect to admin dashboard if user is admin, otherwise to home
-      setTimeout(() => {
-        if (roles) {
-          navigate("/admin");
-        } else {
-          navigate("/");
-        }
-      }, 0);
+      if (shouldShowWarning) {
+        setTargetRouteAfterLogin(destinationRoute);
+        setShowDeviceWarning(true);
+      } else {
+        setTimeout(() => {
+          navigate(destinationRoute);
+        }, 0);
+      }
     } catch (error: any) {
       const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
       toast.error(errorMessage);
@@ -316,9 +318,19 @@ export default function Auth() {
     }
   };
 
+  const handleCloseDeviceWarning = () => {
+    setShowDeviceWarning(false);
+    if (targetRouteAfterLogin) {
+      navigate(targetRouteAfterLogin);
+      setTargetRouteAfterLogin(null); // Clear the target route
+    } else {
+      navigate("/"); // Fallback to home if no target route was set
+    }
+  };
+
   const handleNavigateToChangePassword = () => {
     setShowDeviceWarning(false);
-    setMode("reset"); // Or directly to update-password if session is active
+    setMode("reset"); // Navigate to reset password flow
     setEmail(""); // Clear email for reset flow
     setPassword("");
     setConfirmPassword("");
@@ -337,7 +349,7 @@ export default function Auth() {
       />
       <DeviceWarningDialog
         open={showDeviceWarning}
-        onClose={() => setShowDeviceWarning(false)}
+        onClose={handleCloseDeviceWarning} // Use the new handler
         onNavigateToChangePassword={handleNavigateToChangePassword}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
