@@ -213,14 +213,14 @@ const Index = () => {
       console.log("Total de endereços únicos:", results.length);
       setProgress(90);
       setStatus("Finalizando...");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT
       
       setProcessedData(results);
       setTotalSequencesCount(jsonData.length); // Store total count of original sequences
       setProgress(100);
       setIsProcessing(false);
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log("Dados processados antes da navegação:", results); // LOG ADDED
       // Navigate to the new adjustment page
       navigate("/adjust-locations", { state: { initialProcessedData: results } });
     } catch (error) {

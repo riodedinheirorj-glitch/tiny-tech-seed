@@ -15,9 +15,13 @@ interface LocationAdjustmentsState {
 }
 
 export default function LocationAdjustments() {
+  console.log("LocationAdjustments component rendered."); // LOG ADDED
   const navigate = useNavigate();
   const location = useLocation();
   const { initialProcessedData } = (location.state || {}) as LocationAdjustmentsState;
+
+  console.log("location.state:", location.state); // LOG ADDED
+  console.log("initialProcessedData:", initialProcessedData); // LOG ADDED
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
   const [isMapEditorOpen, setIsMapEditorOpen] = useState(false);
