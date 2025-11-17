@@ -19,7 +19,6 @@ export default function LocationAdjustments() {
   const { initialProcessedData } = (location.state || {}) as LocationAdjustmentsState;
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
-  const [isMapEditorOpen, setIsMapEditorOpen] = useState(false);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -31,24 +30,29 @@ export default function LocationAdjustments() {
 
   const handleAdjustClick = (index: number) => {
     setSelectedAddressIndex(index);
-    setIsMapEditorOpen(true);
   };
 
-  const handleSaveLocation = (lat: number, lng: number) => {
+  // Atualizado handleSaveLocation para aceitar um objeto
+  const handleSaveLocation = (coords: { lat: number; lng: number }) => {
     if (selectedAddressIndex !== null) {
       setAddresses((prevAddresses) => {
         const newAddresses = [...prevAddresses];
         newAddresses[selectedAddressIndex] = {
           ...newAddresses[selectedAddressIndex],
-          latitude: lat.toFixed(6), // Format to 6 decimal places
-          longitude: lng.toFixed(6), // Format to 6 decimal places
-          status: 'corrected', // Mark as manually corrected
+          latitude: coords.lat.toFixed(6), // Formatar para 6 casas decimais
+          longitude: coords.lng.toFixed(6), // Formatar para 6 casas decimais
+          status: 'corrected', // Marcar como corrigido manualmente
           note: 'Ajustado manualmente no mapa',
         };
         return newAddresses;
       });
       toast.success("Localização atualizada com sucesso!");
     }
+    setSelectedAddressIndex(null); // Fechar o editor após salvar
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedAddressIndex(null); // Fechar o editor sem salvar
   };
 
   const handleFinishAdjustments = () => {
@@ -56,10 +60,10 @@ export default function LocationAdjustments() {
   };
 
   const currentAddress = selectedAddressIndex !== null ? addresses[selectedAddressIndex] : null;
-  const initialMapLat = currentAddress?.latitude ? parseFloat(currentAddress.latitude) : -23.55052; // Default to São Paulo
-  const initialMapLng = currentAddress?.longitude ? parseFloat(currentAddress.longitude) : -46.633309; // Default to São Paulo
+  const initialMapLat = currentAddress?.latitude ? parseFloat(currentAddress.latitude) : -23.55052; // Padrão para São Paulo
+  const initialMapLng = currentAddress?.longitude ? parseFloat(currentAddress.longitude) : -46.633309; // Padrão para São Paulo
 
-  // Function to translate column names
+  // Função para traduzir nomes de colunas
   const translateColumnName = (col: string): string => {
     const translations: {
       [key: string]: string;
@@ -78,7 +82,7 @@ export default function LocationAdjustments() {
     return translations[col] || col;
   };
 
-  // Filter and sort columns for display in the table
+  // Filtrar e ordenar colunas para exibição na tabela
   const columnsToShow = ['correctedAddress', 'latitude', 'longitude', 'status'];
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -170,14 +174,14 @@ export default function LocationAdjustments() {
         </Card>
       </div>
 
-      {currentAddress && (
+      {/* Renderiza o AddressMapEditor condicionalmente */}
+      {selectedAddressIndex !== null && currentAddress && (
         <AddressMapEditor
-          open={isMapEditorOpen}
-          onOpenChange={setIsMapEditorOpen}
           initialLat={initialMapLat}
           initialLng={initialMapLng}
           addressName={currentAddress.correctedAddress || currentAddress.originalAddress || "Endereço"}
           onSave={handleSaveLocation}
+          onClose={handleCloseEditor}
         />
       )}
     </div>
