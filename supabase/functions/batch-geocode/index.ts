@@ -44,7 +44,7 @@ function addressMatchesExpected(locationiqAddress: any, expected: any) {
   let bairroMatches = false;
   if (!expBairro) bairroMatches = true;
   else if (gBairro) {
-    bairroMatches = gBairro.includes(expBairro) || expBairro.includes(gBairro);
+    bairroMatches = gBairro.includes(expBairro) || expBairro.includes(expBairro);
   } else {
     bairroMatches = false;
   }
@@ -78,10 +78,9 @@ async function locationiqSearch(query: string) {
   return json && json.length ? json[0] : null;
 }
 
-// NEW HELPER FUNCTION
 function parseCoordinate(coordString: string | undefined | null): number | undefined {
   if (!coordString) return undefined;
-  const cleanedString = String(coordString).replace(',', '.').trim(); // Replace comma with dot for float parsing
+  const cleanedString = String(coordString).replace(',', '.').trim();
   const parsed = parseFloat(cleanedString);
   return isNaN(parsed) ? undefined : parsed;
 }
@@ -91,7 +90,7 @@ serve(async (req)=>{
     return new Response(null, {
       headers: corsHeaders,
       status: 204
-    }); // Retorna 204 No Content para preflight
+    });
   }
   try {
     const { addresses } = await req.json();
@@ -102,7 +101,6 @@ serve(async (req)=>{
     for(let i = 0; i < addresses.length; i++){
       const row = addresses[i];
       let searchUsed = "";
-      let found = null;
       let status = "pending";
       let note = "";
 
@@ -115,71 +113,56 @@ serve(async (req)=>{
       const originalLonNum = parseCoordinate(row.longitude);
 
       if (originalLatNum !== undefined && originalLonNum !== undefined) {
-        finalLat = originalLatNum.toFixed(6); // Store as string with fixed precision
-        finalLon = originalLonNum.toFixed(6); // Store as string with fixed precision
+        finalLat = originalLatNum.toFixed(6);
+        finalLon = originalLonNum.toFixed(6);
         finalDisplayName = row.rawAddress; // Use raw address as display name if using original coords
-        status = "valid"; // Assume valid if coordinates are provided
+        status = "valid";
         note = "coordenadas-da-planilha";
-      }
+      } else {
+        // Only proceed with LocationIQ search if no valid coordinates were found in the spreadsheet
+        const fullQuery = buildLocationIQQueryParam(row);
+        
+        try {
+          searchUsed = "locationiq:" + fullQuery;
+          const locationIqResult = await locationiqSearch(fullQuery);
+          await sleep(RATE_LIMIT_DELAY);
 
-      const fullQuery = buildLocationIQQueryParam(row);
-      
-      // 2. Try LocationIQ search
-      try {
-        searchUsed = "locationiq:" + fullQuery;
-        const locationIqResult = await locationiqSearch(fullQuery);
-        await sleep(RATE_LIMIT_DELAY);
+          if (locationIqResult) {
+            const addr = locationIqResult.address || {};
+            const matches = addressMatchesExpected(addr, {
+              bairro: row.bairro,
+              cidade: row.cidade,
+              estado: row.estado
+            });
 
-        if (locationIqResult) {
-          const addr = locationIqResult.address || {};
-          const matches = addressMatchesExpected(addr, {
-            bairro: row.bairro,
-            cidade: row.cidade,
-            estado: row.estado
-          });
-
-          if (matches) {
-            // 2a. LocationIQ found a good match, override with its data
-            found = locationIqResult;
-            finalLat = found.lat;
-            finalLon = found.lon;
-            finalDisplayName = found.display_name;
-            status = "valid";
-            note = "matches-planilha-locationiq";
-          } else {
-            // 2b. LocationIQ found something, but it didn't match expected city/bairro.
-            // If we had original coordinates, keep them. Otherwise, mark as mismatch.
-            if (finalLat && finalLon) { // Original coordinates were present
-                status = "corrected"; // Consider it corrected if we had original and LocationIQ was ambiguous
-                note = "coordenadas-da-planilha-mantidas-locationiq-mismatch";
+            if (matches) {
+              finalLat = locationIqResult.lat;
+              finalLon = locationIqResult.lon;
+              finalDisplayName = locationIqResult.display_name;
+              status = "valid";
+              note = "geocodificado-locationiq";
             } else {
-                status = "mismatch";
-                note = "resultado-locationiq-nao-coincide-com-cidade-bairro";
+              status = "mismatch";
+              note = "resultado-locationiq-nao-coincide-com-cidade-bairro";
+              finalDisplayName = row.rawAddress; // Keep original address if mismatch
             }
-          }
-        } else {
-          // 2c. LocationIQ found nothing. If we had original coordinates, keep them.
-          if (finalLat && finalLon) {
-            status = "pending"; // Still pending if LocationIQ found nothing, but we have original coords
-            note = "coordenadas-da-planilha-mantidas-locationiq-nao-encontrado";
           } else {
             status = "pending";
             note = "nao-encontrado-locationiq";
+            finalDisplayName = row.rawAddress; // Keep original address if not found
           }
-        }
-      } catch (e) {
-        note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
-        console.warn(e);
-        // If LocationIQ failed, and we had original coordinates, keep them.
-        if (!finalLat || !finalLon) { // If no original coordinates either, then it's truly pending
-            status = "pending";
+        } catch (e) {
+          note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
+          console.warn(e);
+          status = "pending"; // If LocationIQ failed, it's still pending
+          finalDisplayName = row.rawAddress; // Keep original address if error
         }
       }
       
       results.push({
         ...row,
         originalAddress: row.rawAddress || "",
-        correctedAddress: finalDisplayName || row.rawAddress, // Use finalDisplayName or rawAddress
+        correctedAddress: finalDisplayName || row.rawAddress, // Ensure correctedAddress is always set
         latitude: finalLat,
         longitude: finalLon,
         status,
