@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
-import { MapPin, Locate, Loader2 } from "lucide-react"; // Adicionado Locate e Loader2
-import { Button } from "@/components/ui/button"; // Importar Button do shadcn/ui
-import { toast } from "sonner"; // Importar toast para feedback
+import { MapPin, Locate, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface AddressMapEditorProps {
   initialLat: number;
@@ -22,7 +22,7 @@ export default function AddressMapEditor({
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
-  const [isLocating, setIsLocating] = useState(false); // Estado para o carregamento do botão
+  const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -37,7 +37,7 @@ export default function AddressMapEditor({
       container: mapContainer.current,
       style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
       center: [initialLng, initialLat],
-      zoom: 15,
+      zoom: 16, // Aumentado o zoom para 16
     });
 
     markerRef.current = new maplibregl.Marker({ draggable: true })
