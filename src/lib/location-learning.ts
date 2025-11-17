@@ -8,8 +8,10 @@ import { extractNormalizedStreetAndNumber } from "@/lib/coordinate-helpers"; // 
  * @returns Uma string única para a chave de aprendizado.
  */
 export function buildLearningKey(row: ProcessedAddress): string {
-  const fullAddress = (row.correctedAddress || row.originalAddress || "").trim();
-  const normalizedStreetAndNumber = extractNormalizedStreetAndNumber(fullAddress);
+  // Sempre use o endereço original (ou rawAddress) para construir a chave de aprendizado.
+  // Isso garante que a chave seja consistente, independentemente de o endereço ter sido corrigido ou não.
+  const fullAddressForLearningKey = (row.originalAddress || row.rawAddress || "").trim();
+  const normalizedStreetAndNumber = extractNormalizedStreetAndNumber(fullAddressForLearningKey);
   
   const bairro = (row.bairro || "").trim();
   const cidade = (row.cidade || "").trim();
