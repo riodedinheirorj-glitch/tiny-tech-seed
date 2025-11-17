@@ -17,7 +17,7 @@ function normalizeText(s: string) {
   if (!s) return "";
   const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Keep numbers, alphanumeric, whitespace, hyphens, and commas
-  return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
+  return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
 }
 
 // New helper function to detect "quadra e lote" patterns
@@ -163,7 +163,7 @@ serve(async (req)=>{
       // --- Prioritize "quadra e lote" detection ---
       if (row.rawAddress && isQuadraLote(row.rawAddress)) {
         status = "pending";
-        finalCorrectedAddress = row.rawAddress; // Use rawAddress for quadra e lote
+        finalCorrectedAddress = row.rawAddress; // Keep rawAddress for manual review context
         note = (note ? note + ";" : "") + "quadra-lote-manual-review";
         console.log(`  Detected as 'quadra e lote'. Status: ${status}`);
         // Skip further geocoding for these, they need manual adjustment
@@ -220,40 +220,40 @@ serve(async (req)=>{
               // Significant difference, mark as pending for manual review
               finalLat = originalLatNum!.toFixed(6); // Keep original for context in map editor
               finalLon = originalLonNum!.toFixed(6); // Keep original for context in map editor
-              finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
-              status = "pending"; // Changed to pending
+              finalCorrectedAddress = row.rawAddress; // Keep rawAddress for manual review context
+              status = "pending"; 
               note = (note ? note + ";" : "") + "coordenadas-geocodificadas-diferem-muito-da-planilha-revisao-manual";
               console.log(`  Distance > threshold. Marking as PENDING. Status: ${status}`);
             } else {
-              // Small difference, stick with original spreadsheet coords
+              // Small difference, use geocoded display name for grouping, but original coords
               finalLat = originalLatNum!.toFixed(6);
               finalLon = originalLonNum!.toFixed(6);
-              finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
+              finalCorrectedAddress = locationIqDisplayName; // Use standardized name for grouping
               status = "valid";
               note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
-              console.log(`  Distance <= threshold. Using original. Status: ${status}`);
+              console.log(`  Distance <= threshold. Using original coords, geocoded name. Status: ${status}`);
             }
           } else {
-            // No original coords, use geocoded
+            // No original coords, use geocoded display name and coords
             finalLat = locationIqLat.toFixed(6);
             finalLon = locationIqLon.toFixed(6);
-            finalCorrectedAddress = row.rawAddress || locationIqDisplayName; // Prefer rawAddress
+            finalCorrectedAddress = locationIqDisplayName; // Use standardized name for grouping
             status = "valid";
             note = (note ? note + ";" : "") + "geocodificado-locationiq";
-            console.log(`  No original coords. Using geocoded. Status: ${status}`);
+            console.log(`  No original coords. Using geocoded name and coords. Status: ${status}`);
           }
         } else if (hasOriginalCoords) {
           // LocationIQ failed or mismatched, but we have valid original coords
           finalLat = originalLatNum!.toFixed(6);
           finalLon = originalLonNum!.toFixed(6);
-          finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
+          finalCorrectedAddress = row.rawAddress; // Keep rawAddress as no better alternative
           status = "valid";
           note = (note ? note + ";" : "") + "coordenadas-da-planilha-usadas-geocodificacao-falhou";
           console.log(`  LocationIQ failed, but has original coords. Using original. Status: ${status}`);
         } else {
           // No valid coords from any source (this is the default 'pending' case)
           status = "pending";
-          finalCorrectedAddress = row.rawAddress; // Keep original rawAddress if no coords
+          finalCorrectedAddress = row.rawAddress; // Keep rawAddress for manual review context
           note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
           console.log(`  No valid coords from any source. Status: ${status}`);
         }
