@@ -9,11 +9,15 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import LocationAdjustments from "./pages/LocationAdjustments"; // Import new page
+import { useDeviceAuthCheck } from "./hooks/use-device-auth-check"; // NEW IMPORT
 
 const queryClient = new QueryClient();
 
 function AuthEventBridge() {
   const navigate = useNavigate();
+  // NEW: Chama o hook de verificação de autenticação do dispositivo aqui
+  useDeviceAuthCheck(); // Isso lidará com as verificações de sessão específicas do dispositivo
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       console.log("App auth event:", event);
