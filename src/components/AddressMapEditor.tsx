@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import { LatLngExpression, Icon } from 'leaflet';
 import {
   Dialog,
@@ -78,6 +78,21 @@ export default function AddressMapEditor({
     return null;
   }
 
+  // Component to invalidate map size when dialog opens
+  function MapResizer() {
+    const map = useMap();
+    useEffect(() => {
+      if (open) {
+        // Give a small delay to ensure the dialog is fully rendered
+        setTimeout(() => {
+          map.invalidateSize();
+          map.setView(position, map.getZoom()); // Re-center map after invalidating size
+        }, 100); 
+      }
+    }, [open, map, position]);
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] p-0 bg-card/95 backdrop-blur-sm border-2 border-primary/20">
@@ -108,6 +123,7 @@ export default function AddressMapEditor({
                 ref={markerRef}
                 icon={defaultIcon}
               />
+              <MapResizer /> {/* Add the resizer component */}
             </MapContainer>
           </div>
         </div>
