@@ -390,15 +390,6 @@ const Index = () => {
       return;
     }
 
-    // Check credits (already done by RPC)
-    // if (credits < 1) {
-    //   toast.error("Compre mais créditos para continuar", {
-    //     description: "Créditos insuficientes",
-    //   });
-    //   setShowBuyCredits(true);
-    //   return;
-    // }
-
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -415,12 +406,6 @@ const Index = () => {
       return;
     }
 
-    // Update local credits (real-time listener will handle this, but a local optimistic update is fine)
-    // setCredits(prev => prev - 1); // Removed, as real-time listener handles it
-
-    // Track download after successful credit deduction (handled by RPC)
-    // await insertDownload(user.id, `download_${format}_${new Date().toISOString()}`); // Removed, as RPC handles it
-
     // Exporta com os mesmos campos originais
     const exportData = processedData;
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -436,6 +421,13 @@ const Index = () => {
   };
 
   const handleAdjustLocations = () => {
+    if (credits === 0) {
+      toast.error("Compre mais créditos para ajustar localizações no mapa.", {
+        description: "Créditos insuficientes",
+      });
+      setShowBuyCredits(true);
+      return;
+    }
     navigate("/adjust-locations", { state: { initialProcessedData: processedData, totalOriginalSequences: totalSequencesCount } });
   };
 
