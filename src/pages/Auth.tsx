@@ -52,6 +52,8 @@ export default function Auth() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
   const [showAdminSetup, setShowAdminSetup] = useState(false);
+  const [adminExists, setAdminExists] = useState(true); // Assume admin exists until checked
+  const [loadingAdminCheck, setLoadingAdminCheck] = useState(true);
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -76,6 +78,31 @@ export default function Auth() {
     checkRecoveryToken();
 
     return () => subscription?.unsubscribe();
+  }, []);
+
+  // Check if admin exists on component mount
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      setLoadingAdminCheck(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('check-admin-exists');
+        if (error) {
+          console.error("Error checking admin existence:", error);
+          toast.error("Erro ao verificar status do administrador.");
+          setAdminExists(true); // Assume admin exists to be safe
+        } else {
+          setAdminExists(data.adminExists);
+        }
+      } catch (error) {
+        console.error("Unexpected error checking admin existence:", error);
+        toast.error("Erro inesperado ao verificar status do administrador.");
+        setAdminExists(true); // Assume admin exists to be safe
+      } finally {
+        setLoadingAdminCheck(false);
+      }
+    };
+
+    checkAdminStatus();
   }, []);
 
   // Função para disparar confetes
@@ -480,13 +507,15 @@ export default function Auth() {
               >
                 Não tem conta? Criar uma
               </button>
-              <button
-                type="button"
-                onClick={() => setShowAdminSetup(true)}
-                className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
-              >
-                Setup Admin
-              </button>
+              {!adminExists && !loadingAdminCheck && (
+                <button
+                  type="button"
+                  onClick={() => setShowAdminSetup(true)}
+                  className="text-muted-foreground hover:text-primary text-xs relative z-10 mt-4 block"
+                >
+                  Setup Admin
+                </button>
+              )}
             </>
           )}
           {mode === "signup" && (
