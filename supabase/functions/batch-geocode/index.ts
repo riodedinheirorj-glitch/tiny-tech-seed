@@ -133,6 +133,16 @@ function getApproximateDistance(lat1: number, lon1: number, lat2: number, lon2: 
   return d;
 }
 
+// Helper to check if coordinates are valid (non-zero, within range)
+function isValidCoordinate(lat: number | undefined | null, lng: number | undefined | null): boolean {
+  if (lat === null || lng === null || lat === undefined || lng === undefined) return false;
+  if (isNaN(lat) || isNaN(lng)) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  if (lat === 0 && lng === 0) return false; // Often indicates invalid data
+  return true;
+}
+
 serve(async (req)=>{
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -159,7 +169,7 @@ serve(async (req)=>{
 
       const originalLatNum = parseCoordinate(row.latitude);
       const originalLonNum = parseCoordinate(row.longitude);
-      const hasOriginalCoords = originalLatNum !== undefined && originalLonNum !== undefined;
+      const hasOriginalCoords = isValidCoordinate(originalLatNum, originalLonNum);
 
       let locationIqLat: number | undefined = undefined;
       let locationIqLon: number | undefined = undefined;
@@ -172,9 +182,17 @@ serve(async (req)=>{
       console.log(`  Input cidade: '${row.cidade}'`);
       console.log(`  Input estado: '${row.estado}'`);
       console.log(`  Has original coords: ${hasOriginalCoords} (Lat: ${originalLatNum}, Lon: ${originalLonNum})`);
+      console.log(`  Is learned: ${row.learned}`);
 
-      // --- Prioritize "quadra e lote" detection ---
-      if (row.rawAddress && isQuadraLote(row.rawAddress)) {
+      // --- NEW LOGIC: Prioritize learned coordinates if available and valid ---
+      if (row.learned && hasOriginalCoords) {
+        finalLat = originalLatNum!.toFixed(6);
+        finalLon = originalLonNum!.toFixed(6);
+        finalCorrectedAddress = row.rawAddress; // Use rawAddress for consistency with learning key
+        status = "atualizado"; // Mark as manually updated/learned
+        note = (note ? note + ";" : "") + "coordenadas-aprendidas-usadas";
+        console.log(`  Learned coordinates found and valid. Using them. Status: ${status}`);
+      } else if (row.rawAddress && isQuadraLote(row.rawAddress)) {
         status = "pending";
         finalCorrectedAddress = row.rawAddress; // Keep rawAddress for manual review context
         note = (note ? note + ";" : "") + "quadra-lote-manual-review";
@@ -222,12 +240,12 @@ serve(async (req)=>{
         }
 
         // Decision logic (after potential LocationIQ search)
-        if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
-          fullGeocodedAddress = locationIqDisplayName; // Store the verbose name here
+        if (locationIqMatch && isValidCoordinate(locationIqLat, locationIqLon)) {
+          fullGeocodedAddress = locationIqDisplayName; // Store the verbose display_name here
           // LocationIQ found a good match
           if (hasOriginalCoords) {
             console.log(`  Has original coords: ${originalLatNum}, ${originalLonNum}`);
-            const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
+            const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat!, locationIqLon!);
             console.log(`  Distance between original and geocoded: ${distance.toFixed(2)} meters`);
             if (distance > DISTANCE_THRESHOLD_METERS) {
               // Significant difference, mark as pending for manual review
@@ -248,8 +266,8 @@ serve(async (req)=>{
             }
           } else {
             // No original coords, use geocoded display name and coords
-            finalLat = locationIqLat.toFixed(6);
-            finalLon = locationIqLon.toFixed(6);
+            finalLat = locationIqLat!.toFixed(6);
+            finalLon = locationIqLon!.toFixed(6);
             finalCorrectedAddress = locationIqDisplayName; // Use standardized name for grouping
             status = "valid";
             note = (note ? note + ";" : "") + "geocodificado-locationiq";
@@ -281,7 +299,8 @@ serve(async (req)=>{
         status,
         searchUsed,
         note,
-        display_name: fullGeocodedAddress // Use the new field for the verbose name
+        display_name: fullGeocodedAddress, // Use the new field for the verbose name
+        learned: row.learned || false // Ensure learned flag is passed through
       });
       console.log(`--- Final Status for '${row.rawAddress}': ${status}, Corrected Address: '${finalCorrectedAddress}' ---`);
     }

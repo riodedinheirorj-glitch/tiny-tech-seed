@@ -29,6 +29,7 @@ interface InputAddressRow {
   estado?: string;
   latitude?: string; // Adicionado para passar coordenadas da planilha
   longitude?: string; // Adicionado para passar coordenadas da planilha
+  learned?: boolean; // NEW: Adicionado para indicar se a localização foi aprendida
   [key: string]: any; // Allow other original fields
 }
 
