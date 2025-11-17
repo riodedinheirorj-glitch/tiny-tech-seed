@@ -33,35 +33,48 @@ export default function AddressMapEditor({
   const markerRef = useRef<maplibregl.Marker | null>(null);
 
   useEffect(() => {
-    if (!open || !mapContainer.current) return;
-
-    // Se o mapa já existe, apenas atualize a posição e o marcador
-    if (mapRef.current) {
-      mapRef.current.setCenter([initialLng, initialLat]);
-      markerRef.current?.setLngLat([initialLng, initialLat]);
-      mapRef.current.resize(); // Garante que o mapa se ajuste ao tamanho do dialog
+    if (!open) {
+      // Limpar o mapa ao fechar o dialog
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
       return;
     }
 
-    // Criar mapa
-    mapRef.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: "https://demotiles.maplibre.org/style.json",
-      center: [initialLng, initialLat],
-      zoom: 15,
-    });
+    // Usar um timeout para garantir que o dialog esteja totalmente renderizado e visível
+    // antes de inicializar ou redimensionar o mapa.
+    const timer = setTimeout(() => {
+      if (!mapContainer.current) return;
 
-    // Adicionar marcador arrastável
-    markerRef.current = new maplibregl.Marker({ draggable: true })
-      .setLngLat([initialLng, initialLat])
-      .addTo(mapRef.current);
+      if (mapRef.current) {
+        // O mapa já existe, apenas atualize o centro e o marcador, depois redimensione
+        mapRef.current.setCenter([initialLng, initialLat]);
+        markerRef.current?.setLngLat([initialLng, initialLat]);
+        mapRef.current.resize();
+      } else {
+        // Inicializar o mapa
+        mapRef.current = new maplibregl.Map({
+          container: mapContainer.current,
+          style: "https://demotiles.maplibre.org/style.json",
+          center: [initialLng, initialLat],
+          zoom: 15,
+        });
 
-    // Limpar o mapa ao desmontar o componente ou fechar o dialog
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-      markerRef.current = null;
-    };
+        // Adicionar marcador arrastável
+        markerRef.current = new maplibregl.Marker({ draggable: true })
+          .setLngLat([initialLng, initialLat])
+          .addTo(mapRef.current);
+        
+        // Garantir que o mapa redimensione após o carregamento inicial, caso haja animações no dialog
+        mapRef.current.on('load', () => {
+          mapRef.current?.resize();
+        });
+      }
+    }, 100); // Pequeno atraso de 100ms
+
+    return () => clearTimeout(timer);
   }, [open, initialLat, initialLng]);
 
   const handleSave = () => {
