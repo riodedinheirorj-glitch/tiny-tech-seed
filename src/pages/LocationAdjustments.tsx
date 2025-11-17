@@ -164,12 +164,13 @@ export default function LocationAdjustments() {
                       <TableCell 
                         key={colIndex} 
                         className={`text-xs sm:text-sm ${
-                          col === 'correctedAddress' ? 'max-w-[150px] truncate' : // Mantém max-w e truncate para endereço
-                          (col === 'latitude' || col === 'longitude' || col === 'status') ? 'w-[80px] sm:w-[100px]' : '' // Largura fixa para lat/lng/status
+                          col === 'correctedAddress' ? 'max-w-[100px] truncate' : // Ajustado max-w para mobile
+                          (col === 'latitude' || col === 'longitude') ? 'w-[60px]' : // Largura fixa para lat/lng
+                          col === 'status' ? 'w-[60px]' : '' // Largura fixa para status
                         }`} 
                       >
                         {col === 'status' ? (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[10px] font-medium ${ // Menor texto para o badge de status
                             address.status === 'valid' ? 'bg-green-500/20 text-green-400' :
                             address.status === 'corrected' ? 'bg-blue-500/20 text-blue-400' :
                             'bg-red-500/20 text-red-400'
@@ -177,21 +178,21 @@ export default function LocationAdjustments() {
                             {address.status === 'valid' ? 'Válido' :
                              address.status === 'corrected' ? 'Corrigido' :
                              'Pendente'}
-                             {address.learned && <Sparkles className="ml-1 h-3 w-3 text-yellow-400" />}
+                             {address.learned && <Sparkles className="ml-0.5 h-2.5 w-2.5 text-yellow-400" />} {/* Menor ícone de sparkles */}
                           </span>
                         ) : (
                           String(address[col as keyof ProcessedAddress] ?? '')
                         )}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right w-[60px] sm:w-[80px]"> {/* Largura fixa para ações */}
+                    <TableCell className="text-right w-[50px] sm:w-[80px]"> {/* Largura fixa para ações */}
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleAdjustClick(index)}
-                        className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                        className="h-7 w-7 p-0" // Garante que o botão seja pequeno
                       >
-                        <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <Edit className="h-3 w-3" /> {/* Ícone menor */}
                       </Button>
                     </TableCell>
                   </TableRow>
