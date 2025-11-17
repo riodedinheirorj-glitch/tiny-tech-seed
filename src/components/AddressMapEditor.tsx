@@ -82,14 +82,14 @@ export default function AddressMapEditor({
   function MapResizer() {
     const map = useMap();
     useEffect(() => {
-      if (open) {
-        // Give a small delay to ensure the dialog is fully rendered
-        setTimeout(() => {
-          map.invalidateSize();
-          map.setView(position, map.getZoom()); // Re-center map after invalidating size
-        }, 100); 
-      }
-    }, [open, map, position]);
+      // This effect will run every time the MapContainer is mounted (due to the key prop)
+      // and also when the 'open' prop changes if the MapContainer wasn't unmounted.
+      // The setTimeout ensures the dialog has fully rendered before invalidating.
+      setTimeout(() => {
+        map.invalidateSize();
+        map.setView(position, map.getZoom()); // Re-center map after invalidating size
+      }, 100); 
+    }, [map, position]); // Depend on map and position to re-center if position changes while open
     return null;
   }
 
@@ -106,6 +106,7 @@ export default function AddressMapEditor({
         <div className="p-6 pt-4">
           <div className="h-[300px] sm:h-[400px] w-full rounded-lg overflow-hidden border border-primary/30 shadow-lg">
             <MapContainer
+              key={open ? 'map-open' : 'map-closed'} // Dynamic key to force remount
               center={position}
               zoom={15}
               scrollWheelZoom={true}
@@ -123,7 +124,7 @@ export default function AddressMapEditor({
                 ref={markerRef}
                 icon={defaultIcon}
               />
-              <MapResizer /> {/* Add the resizer component */}
+              <MapResizer />
             </MapContainer>
           </div>
         </div>
