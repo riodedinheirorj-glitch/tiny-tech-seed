@@ -10,16 +10,19 @@ export function useDeviceAuthCheck() {
     const checkDeviceStatus = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log("useDeviceAuthCheck: No user logged in, skipping device check.");
         return; // Nenhum usuário logado, não há necessidade de verificar o dispositivo
       }
 
       const userId = user.id;
       const deviceId = localStorage.getItem('rotasmart_device_id');
+      const currentPath = window.location.pathname;
+
+      console.log(`useDeviceAuthCheck: Checking device status for user ${userId} on path ${currentPath}`);
+      console.log(`useDeviceAuthCheck: Local deviceId: ${deviceId}`);
 
       if (!deviceId) {
-        // Este dispositivo não tem um device_id, o que é inesperado se estiver logado.
-        // Força o logout para garantir a segurança.
-        console.warn("Nenhum device_id encontrado no localStorage para o usuário logado. Forçando logout.");
+        console.warn("useDeviceAuthCheck: No device_id found in localStorage for logged in user. Forcing logout.");
         await supabase.auth.signOut();
         navigate('/auth');
         toast.error("Sua sessão foi encerrada por segurança. Por favor, faça login novamente.");
@@ -35,26 +38,29 @@ export function useDeviceAuthCheck() {
         .maybeSingle();
 
       if (error) {
-        console.error("Erro ao verificar o status do dispositivo:", error);
+        console.error("useDeviceAuthCheck: Error checking device status:", error);
         // Não força o logout em caso de erro, pode ser um problema temporário de rede
         return;
       }
 
       if (!data) {
         // O registro deste dispositivo foi excluído pela ação "Continuar com esse" de outro dispositivo
-        console.log("Registro do dispositivo não encontrado. Forçando logout.");
+        console.log("useDeviceAuthCheck: Device record not found for current device. Forcing logout.");
         await supabase.auth.signOut();
         navigate('/auth');
         toast.info("Sua sessão foi encerrada porque você fez login em outro dispositivo e optou por continuar lá.");
+      } else {
+        console.log("useDeviceAuthCheck: Device record found. Session is valid.");
       }
     };
 
     // Executa a verificação na montagem e em mudanças de estado de autenticação (ex: após o login)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`useDeviceAuthCheck: Auth state changed: ${event}`);
       if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         checkDeviceStatus();
       } else if (event === 'SIGNED_OUT') {
-        // Limpa o ID do dispositivo ao sair
+        console.log("useDeviceAuthCheck: User signed out. Clearing device_id from localStorage.");
         localStorage.removeItem('rotasmart_device_id');
       }
     });
@@ -66,6 +72,7 @@ export function useDeviceAuthCheck() {
     const intervalId = setInterval(checkDeviceStatus, 30 * 1000); // Verifica a cada 30 segundos
 
     return () => {
+      console.log("useDeviceAuthCheck: Cleaning up subscription and interval.");
       subscription?.unsubscribe();
       clearInterval(intervalId);
     };
