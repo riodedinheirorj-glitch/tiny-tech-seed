@@ -125,6 +125,38 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
+          full_name: string | null;
+          // credits: number; // Removido
+          created_at: string;
+          has_logged_in_before: boolean;
+          last_uploaded_file: string | null;
+          locationiq_api_key: string | null;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          full_name?: string | null;
+          // credits?: number; // Removido
+          created_at?: string;
+          has_logged_in_before?: boolean;
+          last_uploaded_file?: string | null;
+          locationiq_api_key?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          full_name?: string | null;
+          // credits?: number; // Removido
+          created_at?: string;
+          has_logged_in_before?: boolean;
+          last_uploaded_file?: string | null;
+          locationiq_api_key?: string | null;
+        };
+      };
     }
     Views: {
       [_ in never]: never

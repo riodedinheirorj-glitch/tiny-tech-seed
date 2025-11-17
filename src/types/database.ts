@@ -27,21 +27,21 @@ export type Database = {
           id: string;
           email: string;
           full_name: string | null;
-          credits: number;
+          // credits: number; // Removido
           created_at: string;
         };
         Insert: {
           id: string;
           email: string;
           full_name?: string | null;
-          credits?: number;
+          // credits?: number; // Removido
           created_at?: string;
         };
         Update: {
           id?: string;
           email?: string;
           full_name?: string | null;
-          credits?: number;
+          // credits?: number; // Removido
           created_at?: string;
         };
       };
