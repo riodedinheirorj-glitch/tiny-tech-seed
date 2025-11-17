@@ -59,7 +59,7 @@ export function AdminSetupDialog({ open, onOpenChange }: AdminSetupDialogProps) 
   };
 
   const handleClose = () => {
-    setSetupToken("");
+    setSetupToken("sb_secret_AkfAgeVh3nGJcVaOElSS_w_1N-c7PTB");
     setSuccess(false);
     setCredentials(null);
     onOpenChange(false);
