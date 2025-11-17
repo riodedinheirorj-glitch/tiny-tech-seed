@@ -32,7 +32,9 @@ function isQuadraLote(address: string): boolean {
 
 function buildLocationIQQueryParam(row: any) {
   const parts = [];
+  // Prioritize rawAddress (Destination Address) as it contains full info
   if (row.rawAddress) parts.push(row.rawAddress);
+  // Add bairro, cidade, estado as additional context if available
   if (row.bairro) parts.push(row.bairro);
   if (row.cidade) parts.push(row.cidade);
   if (row.estado) parts.push(row.estado);
@@ -150,7 +152,8 @@ serve(async (req)=>{
       let locationIqDisplayName: string | undefined = undefined;
       let locationIqMatch = false;
 
-      console.log(`--- Processing address ${i + 1}: ${row.rawAddress} ---`);
+      console.log(`--- Processing address ${i + 1} ---`);
+      console.log(`  Raw Input Row: ${JSON.stringify(row)}`);
 
       // --- Prioritize "quadra e lote" detection ---
       if (row.rawAddress && isQuadraLote(row.rawAddress)) {
