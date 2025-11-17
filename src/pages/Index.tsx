@@ -66,7 +66,8 @@ const Index = () => {
   useEffect(() => {
     if (location.state?.adjustedData && location.state?.fromAdjustments) {
       setProcessedData(location.state.adjustedData);
-      setTotalSequencesCount(location.state.adjustedData.reduce((sum: number, row: ProcessedAddress) => sum + (row.sequences ? String(row.sequences).split('; ').length : 1), 0));
+      // Use the passed totalOriginalSequences directly
+      setTotalSequencesCount(location.state.totalOriginalSequences); 
       setCurrentStep(3); // Move to results step
       // Clear state to prevent re-triggering on subsequent visits
       navigate(location.pathname, { replace: true, state: {} });
@@ -157,6 +158,23 @@ const Index = () => {
       const cidadeColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('cidade') || key.toLowerCase().includes('city'));
       const estadoColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('estado') || key.toLowerCase().includes('state'));
 
+      // Find sequence column
+      const sequenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('sequence') || key.toLowerCase().includes('sequencia'));
+      
+      // Calculate total sequences (packages) from the original data
+      let calculatedTotalSequences = 0;
+      if (sequenceColumn) {
+        jsonData.forEach(row => {
+          const sequences = String(row[sequenceColumn] || '').trim();
+          if (sequences) {
+            calculatedTotalSequences += sequences.split('; ').length;
+          }
+        });
+      } else {
+        // If no sequence column, assume each row is one package
+        calculatedTotalSequences = jsonData.length;
+      }
+
       // --- Pre-processamento: Normalização e Aprendizado Automático ---
       const preProcessedData = jsonData.map(row => {
         const rawAddress = String(row[addressColumn] || '').trim();
@@ -233,9 +251,6 @@ const Index = () => {
       setStatus("Agrupando por endereço...");
       // --- END Geocoding ---
 
-      // Find sequence column
-      const sequenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('sequence') || key.toLowerCase().includes('sequencia'));
-      
       // Group by corrected address (or original if not corrected)
       const grouped: {
         [key: string]: ProcessedAddress[];
@@ -274,13 +289,13 @@ const Index = () => {
       // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT
       
       setProcessedData(results);
-      setTotalSequencesCount(jsonData.length); // Store total count of original sequences
+      setTotalSequencesCount(calculatedTotalSequences); // Store total count of original sequences
       setProgress(100);
       setIsProcessing(false);
 
       console.log("Dados processados antes da navegação:", results); // LOG ADDED
       // Navigate to the new adjustment page
-      navigate("/adjust-locations", { state: { initialProcessedData: results } });
+      navigate("/adjust-locations", { state: { initialProcessedData: results, totalOriginalSequences: calculatedTotalSequences } });
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
       toast.error(error instanceof Error ? error.message : "Verifique o formato e tente novamente.");
@@ -343,7 +358,7 @@ const Index = () => {
   };
 
   const handleAdjustLocations = () => {
-    navigate("/adjust-locations", { state: { initialProcessedData: processedData } });
+    navigate("/adjust-locations", { state: { initialProcessedData: processedData, totalOriginalSequences: totalSequencesCount } });
   };
 
   return <div className="min-h-screen bg-background relative overflow-hidden">

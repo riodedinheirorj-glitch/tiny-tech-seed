@@ -13,12 +13,13 @@ import { useIsMobile } from "@/hooks/use-mobile"; // Importar o hook useIsMobile
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
+  totalOriginalSequences: number; // Adicionado para passar o total de pacotes
 }
 
 export default function LocationAdjustments() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { initialProcessedData } = (location.state || {}) as LocationAdjustmentsState;
+  const { initialProcessedData, totalOriginalSequences } = (location.state || {}) as LocationAdjustmentsState;
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number | null>(null);
@@ -77,7 +78,7 @@ export default function LocationAdjustments() {
   };
 
   const handleFinishAdjustments = () => {
-    navigate("/", { state: { adjustedData: addresses, fromAdjustments: true } });
+    navigate("/", { state: { adjustedData: addresses, fromAdjustments: true, totalOriginalSequences: totalOriginalSequences } });
   };
 
   const currentAddress = selectedAddressIndex !== null ? addresses[selectedAddressIndex] : null;
