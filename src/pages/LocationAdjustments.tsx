@@ -106,10 +106,10 @@ export default function LocationAdjustments() {
   };
 
   // Filtrar e ordenar colunas para exibição na tabela, condicionalmente para mobile
-  const baseColumns = ['correctedAddress', 'complement', 'status']; // NEW: Include complement
-  const desktopColumns = ['latitude', 'longitude'];
+  const mobileOnlyColumns = ['correctedAddress', 'status']; // Colunas visíveis no mobile
+  const desktopOnlyColumns = ['complement', 'latitude', 'longitude']; // Colunas adicionadas para desktop
 
-  const columnsToShow = isMobile ? baseColumns : [...baseColumns, ...desktopColumns];
+  const columnsToShow = isMobile ? mobileOnlyColumns : [...mobileOnlyColumns, ...desktopOnlyColumns];
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
     return (
