@@ -41,7 +41,7 @@ const ResultsStep = ({
       'sequence': 'Identificação do Pacote',
       'Address': 'Endereço do Cliente',
       'address': 'Endereço do Cliente',
-      'reference': 'Referência', // NEW: Add translation for reference
+      'complement': 'Complemento', // NEW: Add translation for complement
     };
     return translations[col] || col;
   };
@@ -49,19 +49,19 @@ const ResultsStep = ({
   // Define the order of columns to display
   const orderedColumns = [
     'correctedAddress',
-    'reference', // NEW: Include reference
+    'complement', // NEW: Include complement
     'latitude',
     'longitude',
     'status',
     // Adicione outras colunas relevantes dinamicamente se existirem nos dados
-    ...allColumns.filter(col => !['originalAddress', 'correctedAddress', 'latitude', 'longitude', 'status', 'reference'].includes(col))
+    ...allColumns.filter(col => !['originalAddress', 'correctedAddress', 'latitude', 'longitude', 'status', 'complement'].includes(col))
   ];
 
   // Filtrar e ordenar colunas para exibição na tabela
   const columnsToShow = orderedColumns.filter(col => {
     const translated = translateColumnName(col);
     // Apenas mostra colunas relevantes para o log/resultados, removendo 'Endereço Original'
-    return ['Endereço Corrigido', 'Referência', 'Latitude', 'Longitude', 'Status', 'Identificação do Pacote'].includes(translated); // Updated filter
+    return ['Endereço Corrigido', 'Complemento', 'Latitude', 'Longitude', 'Status', 'Identificação do Pacote'].includes(translated); // Updated filter
   });
 
   return <div className="space-y-4 sm:space-y-6 animate-fade-in">

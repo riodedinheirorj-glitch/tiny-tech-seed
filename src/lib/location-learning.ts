@@ -11,12 +11,12 @@ export function buildLearningKey(row: ProcessedAddress): string {
   const bairro = (row.bairro || "").trim(); // Assumindo que 'bairro' pode vir da planilha original
   const cidade = (row.cidade || "").trim(); // Assumindo que 'cidade' pode vir da planilha original
   const estado = (row.estado || "").trim(); // Assumindo que 'estado' pode vir da planilha original
-  const reference = (row.reference || "").trim(); // NEW: Include reference
+  const complement = (row.complement || "").trim(); // NEW: Include complement
   // Adicione outros campos relevantes da sua planilha para tornar a chave mais específica, se necessário.
   // Ex: const zip = row.Zipcode || "";
 
   // Normaliza a chave para evitar problemas com espaços e caracteres especiais
-  return `${street}_${bairro}_${cidade}_${estado}_${reference}` // NEW: Include reference in key
+  return `${street}_${bairro}_${cidade}_${estado}_${complement}` // NEW: Include complement in key
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_]/g, "") // Remove caracteres não alfanuméricos, exceto underscore
     .toLowerCase();

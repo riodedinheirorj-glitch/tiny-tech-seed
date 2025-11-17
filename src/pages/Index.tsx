@@ -13,7 +13,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { getUserRole, processDownloadRpc, getUserCredits } from "@/lib/supabase-helpers"; // Updated import
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
-import { normalizeCoordinate } from "@/lib/coordinate-helpers"; // Import new helper
+import { normalizeCoordinate, extractAddressComplement } from "@/lib/coordinate-helpers"; // Import new helper
 import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
 import { isValidCoordinate } from "@/lib/validate-coordinates"; // Import new validation helper
 
@@ -161,9 +161,6 @@ const Index = () => {
       // Find sequence column
       const sequenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('sequence') || key.toLowerCase().includes('sequencia'));
       
-      // NEW: Find reference column
-      const referenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('referencia') || key.toLowerCase().includes('reference'));
-
       // Calculate total sequences (packages) from the original data
       let calculatedTotalSequences = 0;
       if (sequenceColumn) {
@@ -184,7 +181,7 @@ const Index = () => {
         const bairro = bairroColumn ? String(row[bairroColumn] || '').trim() : '';
         const cidade = cidadeColumn ? String(row[cidadeColumn] || '').trim() : '';
         const estado = estadoColumn ? String(row[estadoColumn] || '').trim() : '';
-        const reference = referenceColumn ? String(row[referenceColumn] || '').trim() : ''; // NEW: Get reference
+        const complement = extractAddressComplement(rawAddress); // NEW: Extract complement
 
         let latFromSheet = latColumn ? normalizeCoordinate(row[latColumn]) : undefined;
         let lonFromSheet = lonColumn ? normalizeCoordinate(row[lonColumn]) : undefined;
@@ -200,7 +197,7 @@ const Index = () => {
           bairro,
           cidade,
           estado,
-          reference, // NEW: Include reference in learning key
+          complement, // NEW: Include complement in learning key
         } as ProcessedAddress); // Cast para ProcessedAddress para buildLearningKey
 
         const learnedLocation = loadLearnedLocation(learningKey);
@@ -221,7 +218,7 @@ const Index = () => {
           bairro,
           cidade,
           estado,
-          reference, // NEW: Add reference to preProcessedData
+          complement, // NEW: Add complement to preProcessedData
           latitude: finalLat?.toFixed(6),
           longitude: finalLon?.toFixed(6),
           learned, // Adiciona a flag de aprendizado
@@ -254,17 +251,17 @@ const Index = () => {
         setProgress(30 + geocodeProgress);
       }
 
-      setStatus("Agrupando por endereço e referência..."); // Updated status
+      setStatus("Agrupando por endereço e complemento..."); // Updated status
       // --- END Geocoding ---
 
-      // NEW: Group by corrected address AND reference
+      // NEW: Group by corrected address AND complement
       const grouped: {
         [key: string]: ProcessedAddress[];
       } = {};
       allGeocodedData.forEach((row: ProcessedAddress) => {
         const addressToGroup = row.correctedAddress || row.originalAddress;
-        const referenceToGroup = row.reference || ''; // Use empty string if no reference
-        const groupKey = `${addressToGroup}::${referenceToGroup}`; // Combine address and reference for key
+        const complementToGroup = row.complement || ''; // Use empty string if no complement
+        const groupKey = `${addressToGroup}::${complementToGroup}`; // Combine address and complement for key
 
         if (!grouped[groupKey]) {
           grouped[groupKey] = [];
@@ -280,7 +277,7 @@ const Index = () => {
           correctedAddress: rows[0].correctedAddress || rows[0].originalAddress, // The address used for grouping
           latitude: rows[0].latitude, // Use the first row's coordinates for the group
           longitude: rows[0].longitude,
-          reference: rows[0].reference, // Ensure reference is kept
+          complement: rows[0].complement, // Ensure complement is kept
         };
 
         // If there's a sequence column, join all values into the original column
@@ -293,7 +290,7 @@ const Index = () => {
       });
       
       console.log("Total de linhas originais:", jsonData.length);
-      console.log("Total de endereços únicos (agrupados por endereço e referência):", results.length); // Updated log
+      console.log("Total de endereços únicos (agrupados por endereço e complemento):", results.length); // Updated log
       setProgress(90);
       setStatus("Finalizando...");
       // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT
