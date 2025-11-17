@@ -68,7 +68,6 @@ export interface ProcessedAddress {
   note?: string;
   display_name?: string;
   learned?: boolean; // Adicionado para indicar se a localização foi aprendida
-  complement?: string; // NEW: Add complement field
   [key: string]: any; // Allow other original fields
 }
 
