@@ -27,7 +27,7 @@ export default function AddressMapEditor({
   initialLng,
   addressName,
   onSave,
-}: AddressMapEditorProps) {
+}: AddressMapMapEditorProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -53,10 +53,8 @@ export default function AddressMapEditor({
       } else {
         mapRef.current = new maplibregl.Map({
           container: mapContainer.current,
-          // Alterado para um estilo de mapa mais detalhado (MapTiler Streets)
-          // Você precisará de uma chave de API MapTiler.com gratuita para uso em produção.
-          // Substitua 'YOUR_MAPTILER_API_KEY' pela sua chave real.
-          style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${import.meta.env.VITE_MAPTILER_API_KEY || 'YOUR_MAPTILER_API_KEY'}`,
+          // Alterado para o estilo OSM Bright da Geoapify
+          style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${import.meta.env.VITE_GEOAPIFY_API_KEY || 'YOUR_GEOAPIFY_API_KEY'}`,
           center: [initialLng, initialLat],
           zoom: 15,
         });
