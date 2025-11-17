@@ -4,13 +4,14 @@ import { AlertTriangle, Lock } from "lucide-react";
 
 interface DeviceWarningDialogProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void; // Mantém para controle geral do diálogo
+  onContinue: () => void; // Nova prop para a ação "Continuar com esse"
   onNavigateToChangePassword: () => void;
 }
 
-export function DeviceWarningDialog({ open, onClose, onNavigateToChangePassword }: DeviceWarningDialogProps) {
+export function DeviceWarningDialog({ open, onOpenChange, onContinue, onNavigateToChangePassword }: DeviceWarningDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}> {/* Usa onOpenChange aqui */}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
@@ -29,8 +30,8 @@ export function DeviceWarningDialog({ open, onClose, onNavigateToChangePassword 
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-          <Button onClick={onClose} variant="outline" className="w-full sm:w-auto">
-            Entendi
+          <Button onClick={onContinue} variant="outline" className="w-full sm:w-auto">
+            Continuar com esse
           </Button>
           <Button onClick={onNavigateToChangePassword} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
             <Lock className="mr-2 h-4 w-4" />

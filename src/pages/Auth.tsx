@@ -55,6 +55,8 @@ export default function Auth() {
   const [showAdminSetup, setShowAdminSetup] = useState(false);
   const [showDeviceWarning, setShowDeviceWarning] = useState(false); // New state for device warning
   const [targetRouteAfterLogin, setTargetRouteAfterLogin] = useState<string | null>(null); // To store where to navigate after warning
+  const [currentLoggedInUserId, setCurrentLoggedInUserId] = useState<string | null>(null); // New state to store user ID
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null); // New state to store device ID
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -136,15 +138,15 @@ export default function Auth() {
       if (error) throw error;
 
       const userId = data.user.id;
+      setCurrentLoggedInUserId(userId); // Armazena o ID do usuário
 
-      // Generate or retrieve device_id
       let deviceId = localStorage.getItem('rotasmart_device_id');
       if (!deviceId) {
         deviceId = crypto.randomUUID();
         localStorage.setItem('rotasmart_device_id', deviceId);
       }
+      setCurrentDeviceId(deviceId); // Armazena o ID do dispositivo
 
-      // Track device login via Edge Function
       const { data: deviceTrackData, error: deviceTrackError } = await supabase.functions.invoke('track-device-login', {
         body: {
           user_id: userId,
@@ -318,20 +320,46 @@ export default function Auth() {
     }
   };
 
-  const handleCloseDeviceWarning = () => {
-    setShowDeviceWarning(false);
-    if (targetRouteAfterLogin) {
-      navigate(targetRouteAfterLogin);
-      setTargetRouteAfterLogin(null); // Clear the target route
-    } else {
-      navigate("/"); // Fallback to home if no target route was set
+  const handleContinueWithCurrentDevice = async () => {
+    if (!currentLoggedInUserId || !currentDeviceId) {
+      toast.error("Erro: Informações do usuário ou dispositivo ausentes.");
+      return;
+    }
+
+    setLoading(true); // Mostra loading enquanto desloga outros dispositivos
+    try {
+      const { error } = await supabase.functions.invoke('logout-other-devices', {
+        body: {
+          user_id: currentLoggedInUserId,
+          current_device_id: currentDeviceId,
+        }
+      });
+
+      if (error) {
+        console.error("Error logging out other devices:", error);
+        toast.error("Erro ao deslogar outros dispositivos.");
+      } else {
+        toast.success("Outros dispositivos deslogados com sucesso!");
+      }
+    } catch (error: any) {
+      console.error("Unexpected error during logout-other-devices:", error);
+      toast.error("Erro inesperado ao deslogar outros dispositivos.");
+    } finally {
+      setLoading(false);
+      setShowDeviceWarning(false);
+      if (targetRouteAfterLogin) {
+        navigate(targetRouteAfterLogin);
+        setTargetRouteAfterLogin(null);
+      } else {
+        navigate("/");
+      }
     }
   };
 
   const handleNavigateToChangePassword = () => {
     setShowDeviceWarning(false);
-    setMode("reset"); // Navigate to reset password flow
-    setEmail(""); // Clear email for reset flow
+    setMode("reset");
+    setEmail("");
     setPassword("");
     setConfirmPassword("");
   };
@@ -349,7 +377,8 @@ export default function Auth() {
       />
       <DeviceWarningDialog
         open={showDeviceWarning}
-        onClose={handleCloseDeviceWarning} // Use the new handler
+        onOpenChange={setShowDeviceWarning} // Mantém para controle geral do diálogo
+        onContinue={handleContinueWithCurrentDevice} // Nova prop para a ação "Continuar com esse"
         onNavigateToChangePassword={handleNavigateToChangePassword}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
