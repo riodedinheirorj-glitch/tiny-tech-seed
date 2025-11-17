@@ -160,7 +160,7 @@ export default function LocationAdjustments() {
                       {translateColumnName(col)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-xs sm:text-sm text-right">Ajustar no mapa</TableHead>
+                  <TableHead className="text-xs sm:text-sm text-right min-w-[80px] sm:min-w-[120px]">Ajustar no mapa</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,9 +170,11 @@ export default function LocationAdjustments() {
                       <TableCell 
                         key={colIndex} 
                         className={`text-xs sm:text-sm ${
-                          col === 'correctedAddress' ? 'max-w-[100px] truncate' : // Ajustado max-w para mobile
-                          (col === 'latitude' || col === 'longitude') ? 'w-[60px]' : // Largura fixa para lat/lng
-                          col === 'status' ? 'w-[60px]' : '' // Largura fixa para status
+                          col === 'correctedAddress' ? 'max-w-[100px] truncate sm:max-w-[200px] lg:max-w-[250px]' : // Ajustado max-w para desktop
+                          (col === 'latitude' || col === 'longitude') ? 'w-[60px] sm:w-[80px]' : // Ligeiramente mais largo para desktop
+                          col === 'status' ? 'w-[60px]' : // Largura fixa para status
+                          col === 'complement' ? 'max-w-[80px] truncate sm:max-w-[120px]' : // Largura para complemento
+                          ''
                         }`} 
                       >
                         {col === 'status' ? (
@@ -193,7 +195,7 @@ export default function LocationAdjustments() {
                         )}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right w-[50px] sm:w-[80px]"> {/* Largura fixa para ações */}
+                    <TableCell className="text-right w-[80px] sm:w-[120px]"> {/* Largura fixa para ações */}
                       <Button
                         variant="outline"
                         size="sm"
