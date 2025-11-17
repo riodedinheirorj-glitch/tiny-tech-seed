@@ -39,7 +39,9 @@ export default function AddressMapEditor({
 
     mapRef.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      // Usando Stadia Maps para dados mais atualizados.
+      // Para uso em produção com alto volume, pode ser necessário um API Key do Stadia Maps.
+      style: "https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json", 
       center: [initialLng, initialLat],
       zoom: 16, // Aumentado o zoom para 16
     });
