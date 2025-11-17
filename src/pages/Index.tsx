@@ -11,7 +11,7 @@ import BuyCreditsDialog from "@/components/BuyCreditsDialog";
 import CreditsDisplay from "@/components/CreditsDisplay";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { getUserRole, processDownloadRpc, getUserCredits } from "@/lib/supabase-helpers"; // Updated import
+import { getUserRole, processDownloadRpc, getUserCredits, getOrCreateDeviceId, removeUserDevice } from "@/lib/supabase-helpers"; // Updated import
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
 import { normalizeCoordinate, extractAddressComplement, extractNormalizedStreetAndNumber, normalizeComplement } from "@/lib/coordinate-helpers"; // Import new helper
 import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
@@ -120,6 +120,10 @@ const Index = () => {
   }, [user]);
   
   const handleLogout = async () => {
+    const deviceId = getOrCreateDeviceId();
+    if (user?.id && deviceId) {
+      await removeUserDevice(user.id, deviceId);
+    }
     await supabase.auth.signOut();
     toast.success("Você saiu da sua conta");
     navigate("/auth");

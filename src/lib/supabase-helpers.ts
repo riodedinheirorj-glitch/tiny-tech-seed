@@ -40,12 +40,6 @@ export async function getProfiles() {
   return { data: profilesWithCredits, error: null };
 }
 
-// REMOVED: getDownloads - now handled by process_download RPC
-// export async function getDownloads(userId: string) { ... }
-
-// REMOVED: insertDownload - now handled by process_download RPC
-// export async function insertDownload(userId: string, fileName: string) { ... }
-
 export async function getUserCredits(userId: string) {
   const { data, error } = await (supabase as any)
     .from("user_credits")
@@ -63,7 +57,6 @@ export async function getUserCredits(userId: string) {
   return data?.credits || 0;
 }
 
-// NEW: Function to call the process_download RPC
 export async function processDownloadRpc(userId: string, fileName: string) {
   try {
     const { data, error } = await (supabase as any).rpc('process_download', { p_file_name: fileName });
@@ -78,9 +71,6 @@ export async function processDownloadRpc(userId: string, fileName: string) {
     return { success: false, error: error.message || "Erro desconhecido ao processar download." };
   }
 }
-
-// REMOVED: deductCredit - now handled by process_download RPC
-// export async function deductCredit(userId: string) { ... }
 
 export async function addInitialCredits(userId: string, creditsToAdd: number) {
   const { data: userCredits, error: fetchError } = await (supabase as any)
@@ -235,4 +225,62 @@ export async function getTransactions(userId?: string) {
   
   const { data, error } = await query;
   return { data, error };
+}
+
+// --- Funções para gerenciamento de dispositivos ---
+
+// Obtém ou gera um device_id único para o navegador/dispositivo
+export function getOrCreateDeviceId(): string {
+  let deviceId = localStorage.getItem('rotasmart_device_id');
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('rotasmart_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+// Registra ou atualiza o dispositivo do usuário no banco de dados
+export async function registerUserDevice(userId: string, deviceId: string) {
+  const userAgent = navigator.userAgent;
+  const { error } = await (supabase as any)
+    .from('user_devices')
+    .upsert({ user_id: userId, device_id: deviceId, user_agent: userAgent, last_login_at: new Date().toISOString() }, { onConflict: 'user_id, device_id' });
+  
+  if (error) {
+    console.error("Erro ao registrar dispositivo do usuário:", error);
+    return false;
+  }
+  return true;
+}
+
+// Verifica se o usuário está logado em múltiplos dispositivos
+export async function checkMultipleDeviceLogins(userId: string, currentDeviceId: string): Promise<boolean> {
+  const { data, error } = await (supabase as any)
+    .from('user_devices')
+    .select('device_id')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error("Erro ao verificar múltiplos logins:", error);
+    return false;
+  }
+
+  // Filtra o dispositivo atual e verifica se há outros
+  const otherDevices = data.filter((device: any) => device.device_id !== currentDeviceId);
+  return otherDevices.length > 0;
+}
+
+// Remove o dispositivo do usuário no logout
+export async function removeUserDevice(userId: string, deviceId: string) {
+  const { error } = await (supabase as any)
+    .from('user_devices')
+    .delete()
+    .eq('user_id', userId)
+    .eq('device_id', deviceId);
+  
+  if (error) {
+    console.error("Erro ao remover dispositivo do usuário:", error);
+    return false;
+  }
+  return true;
 }

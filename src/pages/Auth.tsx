@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { z } from "zod";
-import { getUserRole, addInitialCredits } from "@/lib/supabase-helpers";
+import { getUserRole, addInitialCredits, getOrCreateDeviceId, registerUserDevice, checkMultipleDeviceLogins, removeUserDevice } from "@/lib/supabase-helpers";
 import { Eye, EyeOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { AdminSetupDialog } from "@/components/AdminSetupDialog";
+import { MultipleDeviceLoginWarning } from "@/components/MultipleDeviceLoginWarning"; // Importar o novo componente
 
 // Função para traduzir erros do Supabase
 const translateSupabaseError = (errorMessage: string): string => {
@@ -52,6 +53,7 @@ export default function Auth() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
   const [showAdminSetup, setShowAdminSetup] = useState(false);
+  const [showMultipleDeviceWarning, setShowMultipleDeviceWarning] = useState(false); // Novo estado para o alerta
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -59,6 +61,12 @@ export default function Auth() {
       console.log("Auth event:", event, "Session:", session);
       if (event === "PASSWORD_RECOVERY") {
         setMode("update-password");
+      } else if (event === "SIGNED_OUT") {
+        // No logout, remove o device_id do banco de dados
+        const deviceId = getOrCreateDeviceId();
+        if (session?.user?.id && deviceId) {
+          removeUserDevice(session.user.id, deviceId);
+        }
       }
     });
 
@@ -132,6 +140,14 @@ export default function Auth() {
 
       if (error) throw error;
 
+      // Gerenciar dispositivo e verificar múltiplos logins
+      const deviceId = getOrCreateDeviceId();
+      await registerUserDevice(data.user.id, deviceId);
+      const multipleLogins = await checkMultipleDeviceLogins(data.user.id, deviceId);
+      if (multipleLogins) {
+        setShowMultipleDeviceWarning(true);
+      }
+
       // Check if user is admin
       const roles = await getUserRole(data.user.id);
 
@@ -188,6 +204,10 @@ export default function Auth() {
         const initialCreditsAmount = 3;
         await addInitialCredits(newUserId, initialCreditsAmount);
         setWelcomeCredits(initialCreditsAmount);
+
+        // Registrar o dispositivo no signup também
+        const deviceId = getOrCreateDeviceId();
+        await registerUserDevice(newUserId, deviceId);
       }
       
       // Disparar confetes e mostrar popup de boas-vindas
@@ -285,6 +305,10 @@ export default function Auth() {
       <AdminSetupDialog
         open={showAdminSetup}
         onOpenChange={setShowAdminSetup}
+      />
+      <MultipleDeviceLoginWarning
+        open={showMultipleDeviceWarning}
+        onClose={() => setShowMultipleDeviceWarning(false)}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">
