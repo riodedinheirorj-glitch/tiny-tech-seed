@@ -40,21 +40,11 @@ export async function getProfiles() {
   return { data: profilesWithCredits, error: null };
 }
 
-export async function getDownloads(userId: string) {
-  const { data } = await (supabase as any)
-    .from("downloads")
-    .select("id", { count: "exact" })
-    .eq("user_id", userId);
-  
-  return data;
-}
+// REMOVED: getDownloads - now handled by process_download RPC
+// export async function getDownloads(userId: string) { ... }
 
-export async function insertDownload(userId: string, fileName: string) {
-  await (supabase as any).from("downloads").insert({
-    user_id: userId,
-    file_name: fileName,
-  });
-}
+// REMOVED: insertDownload - now handled by process_download RPC
+// export async function insertDownload(userId: string, fileName: string) { ... }
 
 export async function getUserCredits(userId: string) {
   const { data, error } = await (supabase as any)
@@ -73,37 +63,24 @@ export async function getUserCredits(userId: string) {
   return data?.credits || 0;
 }
 
-export async function deductCredit(userId: string) {
-  const { data: userCredits, error: fetchError } = await (supabase as any)
-    .from("user_credits")
-    .select("credits")
-    .eq("user_id", userId)
-    .single();
-  
-  if (fetchError && fetchError.code === 'PGRST116') { // No rows found
-    return { success: false, error: "Créditos insuficientes" };
+// NEW: Function to call the process_download RPC
+export async function processDownloadRpc(userId: string, fileName: string) {
+  try {
+    const { data, error } = await (supabase as any).rpc('process_download', { p_file_name: fileName });
+
+    if (error) {
+      console.error("Error calling process_download RPC:", error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Unexpected error in processDownloadRpc:", error);
+    return { success: false, error: error.message || "Erro desconhecido ao processar download." };
   }
-  if (fetchError || !userCredits || userCredits.credits < 1) {
-    return { success: false, error: "Créditos insuficientes" };
-  }
-  
-  const { error: updateError } = await (supabase as any)
-    .from("user_credits")
-    .update({ credits: userCredits.credits - 1 })
-    .eq("user_id", userId);
-  
-  if (updateError) return { success: false, error: updateError.message };
-  
-  // Register transaction
-  await (supabase as any).from("transactions").insert({
-    user_id: userId,
-    type: "download",
-    amount: -1,
-    description: "Download de planilha"
-  });
-  
-  return { success: true };
 }
+
+// REMOVED: deductCredit - now handled by process_download RPC
+// export async function deductCredit(userId: string) { ... }
 
 export async function addInitialCredits(userId: string, creditsToAdd: number) {
   const { data: userCredits, error: fetchError } = await (supabase as any)

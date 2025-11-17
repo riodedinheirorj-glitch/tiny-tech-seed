@@ -173,6 +173,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      process_download: {
+        Args: { p_file_name: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user"

@@ -99,13 +99,14 @@ export default function LocationAdjustments() {
       'Sequence': 'Identificação do Pacote',
       'sequence': 'Identificação do Pacote',
       'Address': 'Endereço do Cliente',
-      'address': 'Endereço do Cliente'
+      'address': 'Endereço do Cliente',
+      'reference': 'Referência', // NEW: Add translation for reference
     };
     return translations[col] || col;
   };
 
   // Filtrar e ordenar colunas para exibição na tabela, condicionalmente para mobile
-  const baseColumns = ['correctedAddress', 'status'];
+  const baseColumns = ['correctedAddress', 'reference', 'status']; // NEW: Include reference
   const desktopColumns = ['latitude', 'longitude'];
 
   const columnsToShow = isMobile ? baseColumns : [...baseColumns, ...desktopColumns];

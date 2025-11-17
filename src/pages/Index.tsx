@@ -11,7 +11,7 @@ import BuyCreditsDialog from "@/components/BuyCreditsDialog";
 import CreditsDisplay from "@/components/CreditsDisplay";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { getUserRole, insertDownload, getUserCredits, deductCredit } from "@/lib/supabase-helpers";
+import { getUserRole, processDownloadRpc, getUserCredits } from "@/lib/supabase-helpers"; // Updated import
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
 import { normalizeCoordinate } from "@/lib/coordinate-helpers"; // Import new helper
 import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
@@ -161,6 +161,9 @@ const Index = () => {
       // Find sequence column
       const sequenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('sequence') || key.toLowerCase().includes('sequencia'));
       
+      // NEW: Find reference column
+      const referenceColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('referencia') || key.toLowerCase().includes('reference'));
+
       // Calculate total sequences (packages) from the original data
       let calculatedTotalSequences = 0;
       if (sequenceColumn) {
@@ -181,6 +184,7 @@ const Index = () => {
         const bairro = bairroColumn ? String(row[bairroColumn] || '').trim() : '';
         const cidade = cidadeColumn ? String(row[cidadeColumn] || '').trim() : '';
         const estado = estadoColumn ? String(row[estadoColumn] || '').trim() : '';
+        const reference = referenceColumn ? String(row[referenceColumn] || '').trim() : ''; // NEW: Get reference
 
         let latFromSheet = latColumn ? normalizeCoordinate(row[latColumn]) : undefined;
         let lonFromSheet = lonColumn ? normalizeCoordinate(row[lonColumn]) : undefined;
@@ -196,6 +200,7 @@ const Index = () => {
           bairro,
           cidade,
           estado,
+          reference, // NEW: Include reference in learning key
         } as ProcessedAddress); // Cast para ProcessedAddress para buildLearningKey
 
         const learnedLocation = loadLearnedLocation(learningKey);
@@ -216,6 +221,7 @@ const Index = () => {
           bairro,
           cidade,
           estado,
+          reference, // NEW: Add reference to preProcessedData
           latitude: finalLat?.toFixed(6),
           longitude: finalLon?.toFixed(6),
           learned, // Adiciona a flag de aprendizado
@@ -248,29 +254,33 @@ const Index = () => {
         setProgress(30 + geocodeProgress);
       }
 
-      setStatus("Agrupando por endereço...");
+      setStatus("Agrupando por endereço e referência..."); // Updated status
       // --- END Geocoding ---
 
-      // Group by corrected address (or original if not corrected)
+      // NEW: Group by corrected address AND reference
       const grouped: {
         [key: string]: ProcessedAddress[];
       } = {};
       allGeocodedData.forEach((row: ProcessedAddress) => {
         const addressToGroup = row.correctedAddress || row.originalAddress;
-        if (!grouped[addressToGroup]) {
-          grouped[addressToGroup] = [];
+        const referenceToGroup = row.reference || ''; // Use empty string if no reference
+        const groupKey = `${addressToGroup}::${referenceToGroup}`; // Combine address and reference for key
+
+        if (!grouped[groupKey]) {
+          grouped[groupKey] = [];
         }
-        grouped[addressToGroup].push(row);
+        grouped[groupKey].push(row);
       });
 
       // Process each group
-      const results = Object.entries(grouped).map(([address, rows]) => {
+      const results = Object.entries(grouped).map(([groupKey, rows]) => {
         // Take the first record as base, but ensure corrected address and coords are used
         const firstRow = {
           ...rows[0],
-          correctedAddress: address, // The address used for grouping
+          correctedAddress: rows[0].correctedAddress || rows[0].originalAddress, // The address used for grouping
           latitude: rows[0].latitude, // Use the first row's coordinates for the group
           longitude: rows[0].longitude,
+          reference: rows[0].reference, // Ensure reference is kept
         };
 
         // If there's a sequence column, join all values into the original column
@@ -283,7 +293,7 @@ const Index = () => {
       });
       
       console.log("Total de linhas originais:", jsonData.length);
-      console.log("Total de endereços únicos:", results.length);
+      console.log("Total de endereços únicos (agrupados por endereço e referência):", results.length); // Updated log
       setProgress(90);
       setStatus("Finalizando...");
       // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT
@@ -317,44 +327,49 @@ const Index = () => {
       return;
     }
 
-    // Check credits
-    if (credits < 1) {
-      toast.error("Compre mais créditos para continuar", {
-        description: "Créditos insuficientes",
-      });
-      setShowBuyCredits(true);
-      return;
-    }
+    // Check credits (already done by RPC)
+    // if (credits < 1) {
+    //   toast.error("Compre mais créditos para continuar", {
+    //     description: "Créditos insuficientes",
+    //   });
+    //   setShowBuyCredits(true);
+    //   return;
+    // }
 
-    // Deduct credit
-    const result = await deductCredit(user.id);
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const fileName = `RotaSmart-${day}-${month}-${year}.${format}`; // Include format in filename for RPC
+
+    // Deduct credit using RPC
+    const result = await processDownloadRpc(user.id, fileName);
     if (!result.success) {
-      toast.error(result.error || "Erro ao descontar crédito");
+      toast.error(result.error || "Erro ao descontar crédito ou processar download.");
+      if (result.error?.includes('Créditos insuficientes')) {
+        setShowBuyCredits(true);
+      }
       return;
     }
 
-    // Update local credits
-    setCredits(prev => prev - 1);
+    // Update local credits (real-time listener will handle this, but a local optimistic update is fine)
+    // setCredits(prev => prev - 1); // Removed, as real-time listener handles it
 
-    // Track download after successful credit deduction
-    await insertDownload(user.id, `download_${format}_${new Date().toISOString()}`);
+    // Track download after successful credit deduction (handled by RPC)
+    // await insertDownload(user.id, `download_${format}_${new Date().toISOString()}`); // Removed, as RPC handles it
 
     // Exporta com os mesmos campos originais
     const exportData = processedData;
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Agrupados por Endereço");
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const fileName = `RotaSmart-${day}-${month}-${year}`;
+    
     if (format === 'xlsx') {
-      XLSX.writeFile(wb, `${fileName}.xlsx`);
+      XLSX.writeFile(wb, `${fileName}`);
     } else {
-      XLSX.writeFile(wb, `${fileName}.csv`);
+      XLSX.writeFile(wb, `${fileName}`);
     }
-    toast.success(`Arquivo exportado! Seu arquivo ${format.toUpperCase()} foi baixado com sucesso. Créditos restantes: ${credits - 1}`);
+    toast.success(`Arquivo exportado! Seu arquivo ${format.toUpperCase()} foi baixado com sucesso.`);
   };
 
   const handleAdjustLocations = () => {
