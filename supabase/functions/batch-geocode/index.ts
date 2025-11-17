@@ -19,6 +19,16 @@ function normalizeText(s: string) {
   return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
 }
 
+// New helper function to detect "quadra e lote" patterns
+function isQuadraLote(address: string): boolean {
+  if (!address) return false;
+  const normalizedAddress = normalizeText(address);
+  // Regex para detectar padrões como "q 12 lt 34", "quadra 12 lote 34", "qd 12 l 34"
+  // ou "q. 12 l. 34", "q-12 l-34"
+  const quadraLotePattern = /\b(q|quadra|qd)\b\s*\d+\s*(e|e\s*|)\s*\b(l|lote|lt)\b\s*\d+/i;
+  return quadraLotePattern.test(normalizedAddress);
+}
+
 function buildLocationIQQueryParam(row: any) {
   const parts = [];
   if (row.rawAddress) parts.push(row.rawAddress);
@@ -135,79 +145,87 @@ serve(async (req)=>{
       let locationIqDisplayName: string | undefined = undefined;
       let locationIqMatch = false;
 
-      // Always attempt LocationIQ search if there's a raw address
-      if (row.rawAddress) {
-        const fullQuery = buildLocationIQQueryParam(row);
-        try {
-          searchUsed = "locationiq:" + fullQuery;
-          const locationIqResult = await locationiqSearch(fullQuery);
-          await sleep(RATE_LIMIT_DELAY);
+      // --- NEW LOGIC: Prioritize "quadra e lote" detection ---
+      if (row.rawAddress && isQuadraLote(row.rawAddress)) {
+        status = "pending";
+        finalDisplayName = row.rawAddress;
+        note = (note ? note + ";" : "") + "quadra-lote-manual-review";
+        // Skip further geocoding for these, they need manual adjustment
+      } else {
+        // Existing logic for geocoding
+        if (row.rawAddress) {
+          const fullQuery = buildLocationIQQueryParam(row);
+          try {
+            searchUsed = "locationiq:" + fullQuery;
+            const locationIqResult = await locationiqSearch(fullQuery);
+            await sleep(RATE_LIMIT_DELAY);
 
-          if (locationIqResult) {
-            const addr = locationIqResult.address || {};
-            const matches = addressMatchesExpected(addr, {
-              bairro: row.bairro,
-              cidade: row.cidade,
-              estado: row.estado
-            });
+            if (locationIqResult) {
+              const addr = locationIqResult.address || {};
+              const matches = addressMatchesExpected(addr, {
+                bairro: row.bairro,
+                cidade: row.cidade,
+                estado: row.estado
+              });
 
-            if (matches) {
-              locationIqLat = parseCoordinate(locationIqResult.lat);
-              locationIqLon = parseCoordinate(locationIqResult.lon);
-              locationIqDisplayName = locationIqResult.display_name;
-              locationIqMatch = true;
+              if (matches) {
+                locationIqLat = parseCoordinate(locationIqResult.lat);
+                locationIqLon = parseCoordinate(locationIqResult.lon);
+                locationIqDisplayName = locationIqResult.display_name;
+                locationIqMatch = true;
+              } else {
+                note = (note ? note + ";" : "") + "resultado-locationiq-nao-coincide-com-cidade-bairro";
+              }
             } else {
-              note = (note ? note + ";" : "") + "resultado-locationiq-nao-coincide-com-cidade-bairro";
+              note = (note ? note + ";" : "") + "nao-encontrado-locationiq";
+            }
+          } catch (e) {
+            note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
+            console.warn(e);
+          }
+        }
+
+        // Decision logic (after potential LocationIQ search)
+        if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
+          // LocationIQ found a good match
+          if (hasOriginalCoords) {
+            const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
+            if (distance > DISTANCE_THRESHOLD_METERS) {
+              // Significant difference, use geocoded
+              finalLat = locationIqLat.toFixed(6);
+              finalLon = locationIqLon.toFixed(6);
+              finalDisplayName = locationIqDisplayName;
+              status = "corrected-by-geocode";
+              note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
+            } else {
+              // Small difference, stick with original spreadsheet coords
+              finalLat = originalLatNum!.toFixed(6);
+              finalLon = originalLonNum!.toFixed(6);
+              finalDisplayName = row.rawAddress;
+              status = "valid";
+              note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
             }
           } else {
-            note = (note ? note + ";" : "") + "nao-encontrado-locationiq";
-          }
-        } catch (e) {
-          note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
-          console.warn(e);
-        }
-      }
-
-      // Decision logic
-      if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
-        // LocationIQ found a good match
-        if (hasOriginalCoords) {
-          const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
-          if (distance > DISTANCE_THRESHOLD_METERS) {
-            // Significant difference, use geocoded
+            // No original coords, use geocoded
             finalLat = locationIqLat.toFixed(6);
             finalLon = locationIqLon.toFixed(6);
             finalDisplayName = locationIqDisplayName;
-            status = "corrected-by-geocode";
-            note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
-          } else {
-            // Small difference, stick with original spreadsheet coords
-            finalLat = originalLatNum!.toFixed(6);
-            finalLon = originalLonNum!.toFixed(6);
-            finalDisplayName = row.rawAddress;
             status = "valid";
-            note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
+            note = (note ? note + ";" : "") + "geocodificado-locationiq";
           }
-        } else {
-          // No original coords, use geocoded
-          finalLat = locationIqLat.toFixed(6);
-          finalLon = locationIqLon.toFixed(6);
-          finalDisplayName = locationIqDisplayName;
+        } else if (hasOriginalCoords) {
+          // LocationIQ failed or mismatched, but we have valid original coords
+          finalLat = originalLatNum!.toFixed(6);
+          finalLon = originalLonNum!.toFixed(6);
+          finalDisplayName = row.rawAddress;
           status = "valid";
-          note = (note ? note + ";" : "") + "geocodificado-locationiq";
+          note = (note ? note + ";" : "") + "coordenadas-da-planilha";
+        } else {
+          // No valid coords from any source (this is the default 'pending' case)
+          status = "pending";
+          finalDisplayName = row.rawAddress; // Keep original address if no coords
+          note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
         }
-      } else if (hasOriginalCoords) {
-        // LocationIQ failed or mismatched, but we have valid original coords
-        finalLat = originalLatNum!.toFixed(6);
-        finalLon = originalLonNum!.toFixed(6);
-        finalDisplayName = row.rawAddress;
-        status = "valid";
-        note = (note ? note + ";" : "") + "coordenadas-da-planilha";
-      } else {
-        // No valid coords from any source
-        status = "pending";
-        finalDisplayName = row.rawAddress; // Keep original address if no coords
-        note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
       }
       
       results.push({
