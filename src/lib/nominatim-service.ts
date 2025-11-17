@@ -71,6 +71,13 @@ export interface ProcessedAddress {
   [key: string]: any; // Allow other original fields
 }
 
+export interface SingleGeocodeResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+  address?: any;
+}
+
 /**
  * Invokes the Supabase Edge Function to geocode a batch of addresses.
  * @param addresses An array of address objects to geocode.
@@ -104,5 +111,33 @@ export async function batchGeocodeAddresses(addresses: InputAddressRow[]): Promi
       status: 'pending',
       note: 'Erro na geocodificação em lote'
     }));
+  }
+}
+
+/**
+ * Invokes the Supabase Edge Function to geocode a single address query.
+ * @param query The address string or ZIP code to geocode.
+ * @returns A promise that resolves to a SingleGeocodeResult or null if not found.
+ */
+export async function geocodeSingleAddress(query: string): Promise<SingleGeocodeResult | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('single-geocode', {
+      body: { query }
+    });
+
+    if (error) {
+      console.error("Edge Function 'single-geocode' error:", error);
+      throw new Error(error.message || "Erro ao geocodificar endereço.");
+    }
+
+    if (!data || data.message === "No results found for the query.") {
+      return null;
+    }
+
+    return data as SingleGeocodeResult;
+  } catch (error) {
+    console.error("Error calling single-geocode Edge Function:", error);
+    toast.error((error as Error).message || "Erro desconhecido ao buscar endereço.");
+    return null;
   }
 }

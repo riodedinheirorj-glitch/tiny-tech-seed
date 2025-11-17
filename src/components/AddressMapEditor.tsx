@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
-import { MapPin, Locate, Loader2 } from "lucide-react";
+import { MapPin, Locate, Loader2, Search } from "lucide-react"; // Import Search icon
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Import Input component
 import { toast } from "sonner";
+import { geocodeSingleAddress } from "@/lib/nominatim-service"; // Import geocodeSingleAddress
 
 interface AddressMapEditorProps {
   initialLat: number;
@@ -23,6 +25,8 @@ export default function AddressMapEditor({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); // State for search input
+  const [isSearching, setIsSearching] = useState(false); // State for search loading
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -99,6 +103,32 @@ export default function AddressMapEditor({
     );
   };
 
+  const handleSearchAddress = async () => {
+    if (!searchQuery.trim()) {
+      toast.info("Por favor, digite um endereço ou CEP para buscar.");
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const result = await geocodeSingleAddress(searchQuery);
+      if (result && mapRef.current && markerRef.current) {
+        const newLat = parseFloat(result.lat);
+        const newLon = parseFloat(result.lon);
+        mapRef.current.setCenter([newLon, newLat]);
+        markerRef.current.setLngLat([newLon, newLat]);
+        toast.success(`Endereço encontrado: ${result.display_name}`);
+      } else {
+        toast.error("Não foi possível encontrar o endereço. Tente ser mais específico.");
+      }
+    } catch (error) {
+      console.error("Error searching address:", error);
+      toast.error("Erro ao buscar endereço. Verifique sua conexão ou tente novamente.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-card p-6 rounded-xl w-full max-w-[600px] shadow-xl border border-primary/20">
@@ -107,6 +137,29 @@ export default function AddressMapEditor({
           Ajustar Localização
         </h2>
         <p className="text-sm text-muted-foreground mb-4">{addressName}</p>
+
+        {/* New search input field */}
+        <div className="flex gap-2 mb-4">
+          <Input
+            type="text"
+            placeholder="Digite um endereço ou CEP para buscar"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleSearchAddress();
+              }
+            }}
+            disabled={isSearching}
+          />
+          <Button onClick={handleSearchAddress} disabled={isSearching}>
+            {isSearching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
 
         <div
           ref={mapContainer}
@@ -117,7 +170,7 @@ export default function AddressMapEditor({
           <Button
             variant="outline"
             onClick={handleLocateMe}
-            disabled={isLocating}
+            disabled={isLocating || isSearching}
             className="flex items-center gap-2 w-full sm:w-auto"
           >
             {isLocating ? (
@@ -136,7 +189,7 @@ export default function AddressMapEditor({
             <Button
               variant="outline"
               onClick={onClose}
-              disabled={isLocating}
+              disabled={isLocating || isSearching}
               className="w-full sm:w-auto"
             >
               Cancelar
@@ -144,7 +197,7 @@ export default function AddressMapEditor({
 
             <Button
               onClick={handleSave}
-              disabled={isLocating}
+              disabled={isLocating || isSearching}
               className="w-full sm:w-auto"
             >
               Salvar Localização
