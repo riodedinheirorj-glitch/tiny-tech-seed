@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import "maplibregl/dist/maplibre-gl.css"; // Re-adicionado conforme instrução do usuário
+// import "maplibregl/dist/maplibre-gl.css"; // Esta linha foi removida para evitar o erro
 import { MapPin } from "lucide-react"; // Mantido para o ícone no título
 
 interface AddressMapEditorProps {
