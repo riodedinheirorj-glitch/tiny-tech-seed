@@ -1,14 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
-// import "maplibregl/dist/maplibre-gl.css"; // Esta linha foi removida para evitar o erro
-import { MapPin } from "lucide-react"; // Mantido para o ícone no título
+import { MapPin, Locate, Loader2 } from "lucide-react"; // Adicionado Locate e Loader2
+import { Button } from "@/components/ui/button"; // Importar Button do shadcn/ui
+import { toast } from "sonner"; // Importar toast para feedback
 
 interface AddressMapEditorProps {
   initialLat: number;
   initialLng: number;
   onSave: (coords: { lat: number; lng: number }) => void;
   onClose: () => void;
-  addressName: string; // Adicionado de volta para melhor UX
+  addressName: string;
 }
 
 export default function AddressMapEditor({
@@ -21,18 +22,17 @@ export default function AddressMapEditor({
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
+  const [isLocating, setIsLocating] = useState(false); // Estado para o carregamento do botão
 
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // Limpar mapa existente antes de criar um novo (importante para re-renderizações)
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
       markerRef.current = null;
     }
 
-    // Criar mapa sem API
     mapRef.current = new maplibregl.Map({
       container: mapContainer.current,
       style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
@@ -40,12 +40,10 @@ export default function AddressMapEditor({
       zoom: 15,
     });
 
-    // Adicionar marcador arrastável
     markerRef.current = new maplibregl.Marker({ draggable: true })
       .setLngLat([initialLng, initialLat])
       .addTo(mapRef.current);
 
-    // Garantir que o mapa redimensione corretamente
     mapRef.current.on('load', () => {
       mapRef.current?.resize();
     });
@@ -60,7 +58,45 @@ export default function AddressMapEditor({
     if (lngLat) {
       onSave({ lat: lngLat.lat, lng: lngLat.lng });
     }
-    onClose(); // Fechar o editor após salvar
+    onClose();
+  };
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocalização não é suportada pelo seu navegador.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        if (mapRef.current && markerRef.current) {
+          mapRef.current.setCenter([longitude, latitude]);
+          markerRef.current.setLngLat([longitude, latitude]);
+          toast.success("Localização atualizada para sua posição GPS!");
+        }
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error("Erro ao obter localização:", error);
+        let errorMessage = "Erro ao obter sua localização.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage = "Permissão de geolocalização negada. Por favor, permita o acesso à localização nas configurações do seu navegador.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Informações de localização indisponíveis.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Tempo limite excedido ao tentar obter a localização.";
+        }
+        toast.error(errorMessage);
+        setIsLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   return (
@@ -72,27 +108,41 @@ export default function AddressMapEditor({
         </h2>
         <p className="text-sm text-muted-foreground mb-4">{addressName}</p>
 
-        {/* Container do mapa */}
         <div
           ref={mapContainer}
           className="w-full h-[400px] rounded-lg overflow-hidden border border-primary/30 shadow-inner"
         />
 
-        {/* Botões */}
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            className="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-            onClick={onClose}
+        <div className="flex justify-between gap-3 mt-4">
+          <Button
+            variant="outline"
+            onClick={handleLocateMe}
+            disabled={isLocating}
+            className="flex items-center gap-2"
           >
-            Cancelar
-          </button>
+            {isLocating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Locate className="h-4 w-4" />
+            )}
+            Minha Localização
+          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isLocating}
+            >
+              Cancelar
+            </Button>
 
-          <button
-            className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            onClick={handleSave}
-          >
-            Salvar Localização
-          </button>
+            <Button
+              onClick={handleSave}
+              disabled={isLocating}
+            >
+              Salvar Localização
+            </Button>
+          </div>
         </div>
       </div>
     </div>
