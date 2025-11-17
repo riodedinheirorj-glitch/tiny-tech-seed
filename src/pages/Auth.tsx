@@ -141,9 +141,11 @@ export default function Auth() {
       setCurrentLoggedInUserId(userId); // Armazena o ID do usuário
 
       let deviceId = localStorage.getItem('rotasmart_device_id');
+      console.log("Auth.tsx: handleLogin - Retrieved deviceId from localStorage:", deviceId);
       if (!deviceId) {
         deviceId = crypto.randomUUID();
         localStorage.setItem('rotasmart_device_id', deviceId);
+        console.log("Auth.tsx: handleLogin - Generated and set new deviceId in localStorage:", deviceId);
       }
       setCurrentDeviceId(deviceId); // Armazena o ID do dispositivo
 
@@ -224,9 +226,11 @@ export default function Auth() {
         setWelcomeCredits(initialCreditsAmount);
 
         let deviceId = localStorage.getItem('rotasmart_device_id');
+        console.log("Auth.tsx: handleSignup - Retrieved deviceId from localStorage:", deviceId);
         if (!deviceId) {
           deviceId = crypto.randomUUID();
           localStorage.setItem('rotasmart_device_id', deviceId);
+          console.log("Auth.tsx: handleSignup - Generated and set new deviceId in localStorage:", deviceId);
         }
         console.log("Auth.tsx: handleSignup - Calling track-device-login with:", { userId: newUserId, deviceId, userAgent: navigator.userAgent });
         await supabase.functions.invoke('track-device-login', {

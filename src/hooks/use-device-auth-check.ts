@@ -30,6 +30,7 @@ export function useDeviceAuthCheck() {
       }
 
       // Verifica se este device_id ainda está registrado para este usuário
+      console.log(`useDeviceAuthCheck: Querying user_devices for user_id: ${userId}, device_id: ${deviceId}`);
       const { data, error } = await supabase
         .from('user_devices')
         .select('id')
@@ -42,6 +43,8 @@ export function useDeviceAuthCheck() {
         // Não força o logout em caso de erro, pode ser um problema temporário de rede
         return;
       }
+
+      console.log("useDeviceAuthCheck: Query result for device record:", data);
 
       if (!data) {
         // O registro deste dispositivo foi excluído pela ação "Continuar com esse" de outro dispositivo
