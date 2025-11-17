@@ -47,7 +47,6 @@ const ResultsStep = ({
 
   // Define the order of columns to display
   const orderedColumns = [
-    // Removido 'originalAddress' para dar mais espaço
     'correctedAddress',
     'latitude',
     'longitude',
@@ -122,7 +121,11 @@ const ResultsStep = ({
             </TableHeader>
             <TableBody>
               {data.map((row, rowIndex) => <TableRow key={rowIndex} className={row.status === 'pending' ? 'bg-red-900/20 hover:bg-red-900/30' : ''}>
-                  {columnsToShow.map((col, colIndex) => <TableCell key={colIndex} className="text-xs sm:text-sm">
+                  {columnsToShow.map((col, colIndex) => (
+                    <TableCell 
+                      key={colIndex} 
+                      className={`text-xs sm:text-sm ${col === 'correctedAddress' ? 'max-w-[150px] truncate' : ''}`} // Adicionado max-w e truncate
+                    >
                       {col === 'status' ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           row.status === 'valid' ? 'bg-green-500/20 text-green-400' :
@@ -137,7 +140,8 @@ const ResultsStep = ({
                       ) : (
                         String(row[col as keyof ProcessedAddress] ?? '')
                       )}
-                    </TableCell>)}
+                    </TableCell>
+                  ))}
                 </TableRow>)}
             </TableBody>
           </Table>
