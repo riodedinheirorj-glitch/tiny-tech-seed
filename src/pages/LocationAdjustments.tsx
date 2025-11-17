@@ -8,7 +8,8 @@ import { MapPin, Edit, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
 import AddressMapEditor from "@/components/AddressMapEditor";
 import { toast } from "sonner";
-import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
+import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning";
+import { useIsMobile } from "@/hooks/use-mobile"; // Importar o hook useIsMobile
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
@@ -21,6 +22,7 @@ export default function LocationAdjustments() {
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number | null>(null);
+  const isMobile = useIsMobile(); // Usar o hook para detectar mobile
 
   useEffect(() => {
     if (!initialProcessedData || initialProcessedData.length === 0) {
@@ -45,7 +47,6 @@ export default function LocationAdjustments() {
     }
   };
 
-  // Atualizado handleSaveLocation para aceitar um objeto
   const handleSaveLocation = (coords: { lat: number; lng: number }) => {
     if (selectedAddressIndex !== null) {
       setAddresses((prevAddresses) => {
@@ -102,8 +103,11 @@ export default function LocationAdjustments() {
     return translations[col] || col;
   };
 
-  // Filtrar e ordenar colunas para exibição na tabela
-  const columnsToShow = ['correctedAddress', 'latitude', 'longitude', 'status'];
+  // Filtrar e ordenar colunas para exibição na tabela, condicionalmente para mobile
+  const baseColumns = ['correctedAddress', 'status'];
+  const desktopColumns = ['latitude', 'longitude'];
+
+  const columnsToShow = isMobile ? baseColumns : [...baseColumns, ...desktopColumns];
 
   if (!initialProcessedData || initialProcessedData.length === 0) {
     return (
@@ -116,8 +120,8 @@ export default function LocationAdjustments() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex flex-col sm:flex-row items-center sm:justify-between mb-6 gap-4"> {/* Ajustado para mobile */}
-          <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2 w-full sm:w-auto" size="sm"> {/* Ajustado para mobile */}
+        <div className="flex flex-col sm:flex-row items-center sm:justify-between mb-6 gap-4">
+          <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2 w-full sm:w-auto" size="sm">
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Button>
@@ -126,8 +130,8 @@ export default function LocationAdjustments() {
           </h1>
           <Button
             onClick={handleFinishAdjustments}
-            className="bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 flex items-center gap-2 w-full sm:w-auto" // Ajustado para mobile
-            size="sm" // Ajustado para mobile
+            className="bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 flex items-center gap-2 w-full sm:w-auto"
+            size="sm"
           >
             <CheckCircle2 className="h-4 w-4" />
             Finalizar e Exportar
@@ -150,11 +154,11 @@ export default function LocationAdjustments() {
               <TableHeader>
                 <TableRow>
                   {columnsToShow.map((col, idx) => (
-                    <TableHead key={idx} className="text-xs sm:text-sm"> {/* Removido whitespace-nowrap */}
+                    <TableHead key={idx} className="text-xs sm:text-sm">
                       {translateColumnName(col)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-xs sm:text-sm text-right">Ações</TableHead> {/* Removido whitespace-nowrap */}
+                  <TableHead className="text-xs sm:text-sm text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
