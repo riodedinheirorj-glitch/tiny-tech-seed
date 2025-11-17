@@ -30,6 +30,18 @@ export default function LocationAdjustments() {
 
   const handleAdjustClick = (index: number) => {
     setSelectedAddressIndex(index);
+    const addressToEdit = addresses[index];
+    const lat = addressToEdit?.latitude ? parseFloat(addressToEdit.latitude) : -23.55052;
+    const lng = addressToEdit?.longitude ? parseFloat(addressToEdit.longitude) : -46.633309;
+    
+    console.log(`Opening map editor for index ${index}:`);
+    console.log(`  Address: ${addressToEdit.correctedAddress || addressToEdit.originalAddress}`);
+    console.log(`  Original Lat/Lng: ${addressToEdit.latitude}, ${addressToEdit.longitude}`);
+    console.log(`  Map Initial Lat/Lng: ${lat}, ${lng}`);
+
+    if (!addressToEdit.latitude || !addressToEdit.longitude) {
+      toast.info("Coordenadas não encontradas para este endereço. O mapa será centralizado em São Paulo. Arraste o marcador para a localização correta.");
+    }
   };
 
   // Atualizado handleSaveLocation para aceitar um objeto
