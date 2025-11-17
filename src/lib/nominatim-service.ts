@@ -27,6 +27,8 @@ interface InputAddressRow {
   bairro?: string;
   cidade?: string;
   estado?: string;
+  latitude?: string; // Adicionado para passar coordenadas da planilha
+  longitude?: string; // Adicionado para passar coordenadas da planilha
   [key: string]: any; // Allow other original fields
 }
 

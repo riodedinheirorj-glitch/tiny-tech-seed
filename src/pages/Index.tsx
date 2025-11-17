@@ -145,6 +145,10 @@ const Index = () => {
         throw new Error("Coluna de endereço não encontrada na planilha");
       }
 
+      // Find latitude and longitude columns if they exist
+      const latColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('latitude') || key.toLowerCase().includes('lat'));
+      const lonColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('longitude') || key.toLowerCase().includes('lon'));
+
       // --- Geocoding and Correction Step (Batch Processing) ---
       setProgress(30);
       setStatus(`Iniciando validação e correção de ${jsonData.length} endereços em lotes...`);
@@ -160,6 +164,9 @@ const Index = () => {
           bairro: String(row.bairro || '').trim(),
           cidade: String(row.cidade || '').trim(),
           estado: String(row.estado || '').trim(),
+          // Pass original latitude and longitude if they exist in the spreadsheet
+          latitude: latColumn && row[latColumn] ? String(row[latColumn]).trim() : undefined,
+          longitude: lonColumn && row[lonColumn] ? String(row[lonColumn]).trim() : undefined,
         }));
 
         setStatus(`Processando lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(totalAddresses / BATCH_SIZE)} (${i + 1}-${Math.min(i + BATCH_SIZE, totalAddresses)})...`);

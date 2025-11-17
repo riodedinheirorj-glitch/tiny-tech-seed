@@ -91,75 +91,87 @@ serve(async (req)=>{
       let found = null;
       let status = "pending";
       let note = "";
+
+      let finalLat: string | undefined = undefined;
+      let finalLon: string | undefined = undefined;
+      let finalDisplayName: string | undefined = undefined;
+
+      // 1. Prioritize original lat/lng from spreadsheet if available and valid
+      const originalLat = parseFloat(row.latitude || '');
+      const originalLon = parseFloat(row.longitude || '');
+
+      if (!isNaN(originalLat) && !isNaN(originalLon)) {
+        finalLat = row.latitude;
+        finalLon = row.longitude;
+        finalDisplayName = row.rawAddress; // Use raw address as display name if using original coords
+        status = "valid"; // Assume valid if coordinates are provided
+        note = "coordenadas-da-planilha";
+      }
+
       const fullQuery = buildLocationIQQueryParam(row);
-      // Try LocationIQ search
+      
+      // 2. Try LocationIQ search
       try {
         searchUsed = "locationiq:" + fullQuery;
-        found = await locationiqSearch(fullQuery);
+        const locationIqResult = await locationiqSearch(fullQuery);
         await sleep(RATE_LIMIT_DELAY);
-      } catch (e) {
-        note = "erro-na-requisicao-locationiq";
-        console.warn(e);
-      }
-      // If found, validate city/bairro/state vs planilha
-      if (found) {
-        const addr = found.address || {};
-        const matches = addressMatchesExpected(addr, {
-          bairro: row.bairro,
-          cidade: row.cidade,
-          estado: row.estado
-        });
-        if (matches) {
-          status = "valid";
-          note = "matches-planilha";
-        } else {
-          // If initial match fails, try a more specific query if possible
-          try {
-            const specificQueryParts = [];
-            if (row.rawAddress) specificQueryParts.push(row.rawAddress);
-            if (row.cidade) specificQueryParts.push(row.cidade);
-            if (row.estado) specificQueryParts.push(row.estado);
-            const specificQuery = specificQueryParts.join(", ");
-            if (specificQuery !== fullQuery) {
-              searchUsed = "locationiq-specific:" + specificQuery;
-              const retr = await locationiqSearch(specificQuery);
-              await sleep(RATE_LIMIT_DELAY);
-              if (retr && addressMatchesExpected(retr.address || {}, {
-                bairro: row.bairro,
-                cidade: row.cidade,
-                estado: row.estado
-              })) {
-                found = retr;
-                status = "corrected";
-                note = "specific-query-success";
-              } else {
-                status = "mismatch";
-                note = "resultado-nao-coincide-com-cidade-bairro";
-              }
+
+        if (locationIqResult) {
+          const addr = locationIqResult.address || {};
+          const matches = addressMatchesExpected(addr, {
+            bairro: row.bairro,
+            cidade: row.cidade,
+            estado: row.estado
+          });
+
+          if (matches) {
+            // 2a. LocationIQ found a good match, override with its data
+            found = locationIqResult;
+            finalLat = found.lat;
+            finalLon = found.lon;
+            finalDisplayName = found.display_name;
+            status = "valid";
+            note = "matches-planilha-locationiq";
+          } else {
+            // 2b. LocationIQ found something, but it didn't match expected city/bairro.
+            // If we had original coordinates, keep them. Otherwise, mark as mismatch.
+            if (finalLat && finalLon) { // Original coordinates were present
+                status = "corrected"; // Consider it corrected if we had original and LocationIQ was ambiguous
+                note = "coordenadas-da-planilha-mantidas-locationiq-mismatch";
             } else {
-              status = "mismatch";
-              note = "resultado-nao-coincide-com-cidade-bairro";
+                status = "mismatch";
+                note = "resultado-locationiq-nao-coincide-com-cidade-bairro";
             }
-          } catch (e) {
-            note = (note ? note + ";" : "") + "erro-na-requisicao-specific";
-            status = "mismatch";
-            console.warn(e);
+          }
+        } else {
+          // 2c. LocationIQ found nothing. If we had original coordinates, keep them.
+          if (finalLat && finalLon) {
+            status = "pending"; // Still pending if LocationIQ found nothing, but we have original coords
+            note = "coordenadas-da-planilha-mantidas-locationiq-nao-encontrado";
+          } else {
+            status = "pending";
+            note = "nao-encontrado-locationiq";
           }
         }
-      } else {
-        status = "pending";
-        note = note || "nao-encontrado";
+      } catch (e) {
+        note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
+        console.warn(e);
+        // If LocationIQ failed, and we had original coordinates, keep them.
+        if (!finalLat || !finalLon) { // If no original coordinates either, then it's truly pending
+            status = "pending";
+        }
       }
+      
       results.push({
         ...row,
         originalAddress: row.rawAddress || "",
-        correctedAddress: status === 'valid' || status === 'corrected' ? found?.display_name || row.rawAddress : row.rawAddress,
-        latitude: found ? found.lat : undefined,
-        longitude: found ? found.lon : undefined,
+        correctedAddress: finalDisplayName || row.rawAddress, // Use finalDisplayName or rawAddress
+        latitude: finalLat,
+        longitude: finalLon,
         status,
         searchUsed,
         note,
-        display_name: found ? found.display_name : undefined
+        display_name: finalDisplayName
       });
     }
     return new Response(JSON.stringify(results), {
