@@ -160,7 +160,10 @@ export default function LocationAdjustments() {
                 {addresses.map((address, index) => (
                   <TableRow key={index} className={address.status === 'pending' ? 'bg-red-900/20 hover:bg-red-900/30' : ''}>
                     {columnsToShow.map((col, colIndex) => (
-                      <TableCell key={colIndex} className="text-xs sm:text-sm whitespace-nowrap">
+                      <TableCell 
+                        key={colIndex} 
+                        className={`text-xs sm:text-sm ${col === 'correctedAddress' ? 'max-w-[150px] truncate' : ''}`} // Adicionado max-w e truncate
+                      >
                         {col === 'status' ? (
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             address.status === 'valid' ? 'bg-green-500/20 text-green-400' :
