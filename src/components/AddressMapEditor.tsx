@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import "maplibregl/dist/maplibre-gl.css";
+// import "maplibregl/dist/maplibre-gl.css"; // Esta linha foi removida
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
