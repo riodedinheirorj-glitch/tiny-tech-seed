@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { 
   getProfiles, 
-  getDownloads, 
   updateUserCredits,
   getPendingPurchases,
   approvePurchase,
@@ -92,27 +91,36 @@ export default function AdminDashboard() {
       setIsAdmin(true);
       setAdminId(user.id);
 
-      // Load user stats
+      // Load user profiles
       const { data: profiles, error: profilesError } = await getProfiles();
 
       if (profilesError) throw profilesError;
 
       setTotalUsers(profiles?.length || 0);
 
-      // Get download counts for each user
-      const statsPromises = profiles?.map(async (profile: any) => {
-        const downloads = await getDownloads(profile.id);
+      // Fetch all downloads and create a map for counts
+      const { data: allDownloads, error: downloadsError } = await supabase
+        .from('downloads')
+        .select('user_id');
 
-        return {
-          id: profile.id,
-          email: profile.email,
-          full_name: profile.full_name,
-          credits: profile.credits || 0,
-          download_count: downloads?.length || 0,
-        };
-      }) || [];
+      if (downloadsError) throw downloadsError;
 
-      const stats = await Promise.all(statsPromises);
+      const downloadCounts = new Map<string, number>();
+      allDownloads?.forEach(download => {
+        if (download.user_id) {
+          downloadCounts.set(download.user_id, (downloadCounts.get(download.user_id) || 0) + 1);
+        }
+      });
+
+      // Combine profiles with download counts
+      const stats = profiles?.map((profile: any) => ({
+        id: profile.id,
+        email: profile.email,
+        full_name: profile.full_name,
+        credits: profile.credits || 0,
+        download_count: downloadCounts.get(profile.id) || 0,
+      })) || [];
+
       setUserStats(stats);
 
       // Load pending purchases
