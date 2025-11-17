@@ -132,10 +132,12 @@ const ResultsStep = ({
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           row.status === 'valid' ? 'bg-green-500/20 text-green-400' :
                           row.status === 'corrected' ? 'bg-blue-500/20 text-blue-400' :
+                          row.status === 'atualizado' ? 'bg-purple-500/20 text-purple-400' : // Novo estilo para 'atualizado'
                           'bg-red-500/20 text-red-400'
                         }`}>
                           {row.status === 'valid' ? 'Válido' :
                            row.status === 'corrected' ? 'Corrigido' :
+                           row.status === 'atualizado' ? 'Atualizado' : // Novo texto para 'atualizado'
                            'Pendente'}
                            {row.status === 'pending' && <MapPinOff className="ml-1 h-3 w-3" />}
                         </span>

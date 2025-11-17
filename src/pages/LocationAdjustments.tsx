@@ -56,7 +56,7 @@ export default function LocationAdjustments() {
           ...newAddresses[selectedAddressIndex],
           latitude: coords.lat.toFixed(6), // Formatar para 6 casas decimais
           longitude: coords.lng.toFixed(6), // Formatar para 6 casas decimais
-          status: 'corrected', // Marcar como corrigido manualmente
+          status: 'atualizado', // Marcar como atualizado manualmente
           note: 'Ajustado manualmente no mapa',
           learned: true, // Marcar como aprendido
         };
@@ -179,10 +179,12 @@ export default function LocationAdjustments() {
                           <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[10px] font-medium ${ // Menor texto para o badge de status
                             address.status === 'valid' ? 'bg-green-500/20 text-green-400' :
                             address.status === 'corrected' ? 'bg-blue-500/20 text-blue-400' :
+                            address.status === 'atualizado' ? 'bg-purple-500/20 text-purple-400' : // Novo estilo para 'atualizado'
                             'bg-red-500/20 text-red-400'
                           }`}>
                             {address.status === 'valid' ? 'Válido' :
                              address.status === 'corrected' ? 'Corrigido' :
+                             address.status === 'atualizado' ? 'Atualizado' : // Novo texto para 'atualizado'
                              'Pendente'}
                              {address.learned && <Sparkles className="ml-0.5 h-2.5 w-2.5 text-yellow-400" />} {/* Menor ícone de sparkles */}
                           </span>
@@ -213,7 +215,7 @@ export default function LocationAdjustments() {
       {selectedAddressIndex !== null && currentAddress && (
         <AddressMapEditor
           initialLat={initialMapLat}
-          initialLng={initialMapLng}
+          initialLng={initialMapMapLng}
           addressName={currentAddress.correctedAddress || currentAddress.originalAddress || "Endereço"}
           onSave={handleSaveLocation}
           onClose={handleCloseEditor}

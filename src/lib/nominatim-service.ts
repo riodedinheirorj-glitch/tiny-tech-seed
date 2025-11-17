@@ -63,7 +63,7 @@ export interface ProcessedAddress {
   correctedAddress?: string;
   latitude?: string;
   longitude?: string;
-  status: 'valid' | 'corrected' | 'pending' | 'mismatch' | 'corrected-by-geocode'; // Adicionado 'corrected-by-geocode'
+  status: 'valid' | 'corrected' | 'pending' | 'mismatch' | 'corrected-by-geocode' | 'atualizado'; // Adicionado 'atualizado'
   searchUsed?: string;
   note?: string;
   display_name?: string;

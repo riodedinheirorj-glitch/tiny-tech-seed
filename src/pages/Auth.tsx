@@ -12,6 +12,7 @@ import { Eye, EyeOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { AdminSetupDialog } from "@/components/AdminSetupDialog";
+import { DeviceWarningDialog } from "@/components/DeviceWarningDialog"; // Import the new dialog
 
 // Função para traduzir erros do Supabase
 const translateSupabaseError = (errorMessage: string): string => {
@@ -52,6 +53,7 @@ export default function Auth() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
   const [showAdminSetup, setShowAdminSetup] = useState(false);
+  const [showDeviceWarning, setShowDeviceWarning] = useState(false); // New state for device warning
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -132,8 +134,33 @@ export default function Auth() {
 
       if (error) throw error;
 
+      const userId = data.user.id;
+
+      // Generate or retrieve device_id
+      let deviceId = localStorage.getItem('rotasmart_device_id');
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem('rotasmart_device_id', deviceId);
+      }
+
+      // Track device login via Edge Function
+      const { data: deviceTrackData, error: deviceTrackError } = await supabase.functions.invoke('track-device-login', {
+        body: {
+          user_id: userId,
+          device_id: deviceId,
+          user_agent: navigator.userAgent,
+        }
+      });
+
+      if (deviceTrackError) {
+        console.error("Error tracking device login:", deviceTrackError);
+        // Don't block login, but log the error
+      } else if (deviceTrackData?.multipleDevicesDetected) {
+        setShowDeviceWarning(true);
+      }
+
       // Check if user is admin
-      const roles = await getUserRole(data.user.id);
+      const roles = await getUserRole(userId);
 
       toast.success("Login realizado com sucesso!");
       
@@ -188,6 +215,20 @@ export default function Auth() {
         const initialCreditsAmount = 3;
         await addInitialCredits(newUserId, initialCreditsAmount);
         setWelcomeCredits(initialCreditsAmount);
+
+        // Also track the device for the new user
+        let deviceId = localStorage.getItem('rotasmart_device_id');
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem('rotasmart_device_id', deviceId);
+        }
+        await supabase.functions.invoke('track-device-login', {
+          body: {
+            user_id: newUserId,
+            device_id: deviceId,
+            user_agent: navigator.userAgent,
+          }
+        });
       }
       
       // Disparar confetes e mostrar popup de boas-vindas
@@ -275,6 +316,14 @@ export default function Auth() {
     }
   };
 
+  const handleNavigateToChangePassword = () => {
+    setShowDeviceWarning(false);
+    setMode("reset"); // Or directly to update-password if session is active
+    setEmail(""); // Clear email for reset flow
+    setPassword("");
+    setConfirmPassword("");
+  };
+
   return (
     <>
       <WelcomeDialog 
@@ -285,6 +334,11 @@ export default function Auth() {
       <AdminSetupDialog
         open={showAdminSetup}
         onOpenChange={setShowAdminSetup}
+      />
+      <DeviceWarningDialog
+        open={showDeviceWarning}
+        onClose={() => setShowDeviceWarning(false)}
+        onNavigateToChangePassword={handleNavigateToChangePassword}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">

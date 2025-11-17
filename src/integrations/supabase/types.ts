@@ -157,6 +157,41 @@ export type Database = {
           locationiq_api_key?: string | null;
         };
       };
+      user_devices: { // NEW TABLE
+        Row: {
+          id: string;
+          user_id: string;
+          device_id: string;
+          user_agent: string | null;
+          last_login_at: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          device_id: string;
+          user_agent?: string | null;
+          last_login_at?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          device_id?: string;
+          user_agent?: string | null;
+          last_login_at?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_devices_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     }
     Views: {
       [_ in never]: never
