@@ -1,6 +1,7 @@
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import { LatLngExpression, Icon } from 'leaflet';
+import React, { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,26 +9,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-// Default icon for Leaflet markers
-const defaultIcon = new Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  tooltipAnchor: [16, -28],
-  shadowSize: [41, 41],
-});
+import { MapPin } from "lucide-react";
 
 interface AddressMapEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialPosition: LatLngExpression;
+  initialLat: number;
+  initialLng: number;
   addressName: string;
   onSave: (lat: number, lng: number) => void;
 }
@@ -35,63 +23,54 @@ interface AddressMapEditorProps {
 export default function AddressMapEditor({
   open,
   onOpenChange,
-  initialPosition,
+  initialLat,
+  initialLng,
   addressName,
   onSave,
 }: AddressMapEditorProps) {
-  const [position, setPosition] = useState<LatLngExpression>(initialPosition);
-  const markerRef = useRef<any>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
 
-  // Update internal position state when initialPosition changes (e.g., when a new address is selected)
-  useMemo(() => {
-    setPosition(initialPosition);
-  }, [initialPosition]);
+  useEffect(() => {
+    if (!open || !mapContainer.current) return;
 
-  const eventHandlers = useMemo(
-    () => ({
-      dragend() {
-        const marker = markerRef.current;
-        if (marker != null) {
-          setPosition(marker.getLatLng());
-        }
-      },
-    }),
-    [],
-  );
+    // Se o mapa já existe, apenas atualize a posição e o marcador
+    if (mapRef.current) {
+      mapRef.current.setCenter([initialLng, initialLat]);
+      markerRef.current?.setLngLat([initialLng, initialLat]);
+      mapRef.current.resize(); // Garante que o mapa se ajuste ao tamanho do dialog
+      return;
+    }
+
+    // Criar mapa
+    mapRef.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: "https://demotiles.maplibre.org/style.json",
+      center: [initialLng, initialLat],
+      zoom: 15,
+    });
+
+    // Adicionar marcador arrastável
+    markerRef.current = new maplibregl.Marker({ draggable: true })
+      .setLngLat([initialLng, initialLat])
+      .addTo(mapRef.current);
+
+    // Limpar o mapa ao desmontar o componente ou fechar o dialog
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, [open, initialLat, initialLng]);
 
   const handleSave = () => {
-    if (Array.isArray(position)) {
-      onSave(position[0], position[1]);
-    } else {
-      onSave(position.lat, position.lng);
+    const lngLat = markerRef.current?.getLngLat();
+    if (lngLat) {
+      onSave(lngLat.lat, lngLat.lng);
     }
     onOpenChange(false);
   };
-
-  // Component to handle map clicks and update marker position
-  function MapClickHandler() {
-    useMapEvents({
-      click(e) {
-        setPosition(e.latlng);
-      },
-    });
-    return null;
-  }
-
-  // Component to invalidate map size when dialog opens
-  function MapResizer() {
-    const map = useMap();
-    useEffect(() => {
-      // This effect will run every time the MapContainer is mounted (due to the key prop)
-      // and also when the 'open' prop changes if the MapContainer wasn't unmounted.
-      // The setTimeout ensures the dialog has fully rendered before invalidating.
-      setTimeout(() => {
-        map.invalidateSize();
-        map.setView(position, map.getZoom()); // Re-center map after invalidating size
-      }, 100); 
-    }, [map, position]); // Depend on map and position to re-center if position changes while open
-    return null;
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,29 +83,10 @@ export default function AddressMapEditor({
           <p className="text-sm text-muted-foreground mt-1">{addressName}</p>
         </DialogHeader>
         <div className="p-6 pt-4">
-          <div className="h-[300px] sm:h-[400px] w-full rounded-lg overflow-hidden border border-primary/30 shadow-lg">
-            <MapContainer
-              key={open ? 'map-open' : 'map-closed'} // Dynamic key to force remount
-              center={position}
-              zoom={15}
-              scrollWheelZoom={true}
-              className="h-full w-full"
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapClickHandler />
-              <Marker
-                draggable={true}
-                eventHandlers={eventHandlers}
-                position={position}
-                ref={markerRef}
-                icon={defaultIcon}
-              />
-              <MapResizer />
-            </MapContainer>
-          </div>
+          <div
+            ref={mapContainer}
+            className="w-full h-[300px] sm:h-[400px] rounded-lg overflow-hidden border border-primary/30 shadow-lg"
+          />
         </div>
         <DialogFooter className="p-6 pt-0 flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">

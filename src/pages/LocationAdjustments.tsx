@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MapPin, Edit, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
 import AddressMapEditor from "@/components/AddressMapEditor";
-import { LatLngExpression } from "leaflet";
 import { toast } from "sonner";
 
 interface LocationAdjustmentsState {
@@ -15,13 +14,9 @@ interface LocationAdjustmentsState {
 }
 
 export default function LocationAdjustments() {
-  console.log("LocationAdjustments component rendered."); // LOG ADDED
   const navigate = useNavigate();
   const location = useLocation();
   const { initialProcessedData } = (location.state || {}) as LocationAdjustmentsState;
-
-  console.log("location.state:", location.state); // LOG ADDED
-  console.log("initialProcessedData:", initialProcessedData); // LOG ADDED
 
   const [addresses, setAddresses] = useState<ProcessedAddress[]>(initialProcessedData || []);
   const [isMapEditorOpen, setIsMapEditorOpen] = useState(false);
@@ -61,12 +56,8 @@ export default function LocationAdjustments() {
   };
 
   const currentAddress = selectedAddressIndex !== null ? addresses[selectedAddressIndex] : null;
-  const initialMapPosition: LatLngExpression = currentAddress?.latitude && currentAddress?.longitude
-    ? [parseFloat(currentAddress.latitude), parseFloat(currentAddress.longitude)]
-    : [-23.55052, -46.633309]; // Default to São Paulo if no coords
-
-  // Get all unique column names from the data, including new ones
-  const allColumns = Array.from(new Set(addresses.flatMap(row => Object.keys(row))));
+  const initialMapLat = currentAddress?.latitude ? parseFloat(currentAddress.latitude) : -23.55052; // Default to São Paulo
+  const initialMapLng = currentAddress?.longitude ? parseFloat(currentAddress.longitude) : -46.633309; // Default to São Paulo
 
   // Function to translate column names
   const translateColumnName = (col: string): string => {
@@ -183,7 +174,8 @@ export default function LocationAdjustments() {
         <AddressMapEditor
           open={isMapEditorOpen}
           onOpenChange={setIsMapEditorOpen}
-          initialPosition={initialMapPosition}
+          initialLat={initialMapLat}
+          initialLng={initialMapLng}
           addressName={currentAddress.correctedAddress || currentAddress.originalAddress || "Endereço"}
           onSave={handleSaveLocation}
         />
