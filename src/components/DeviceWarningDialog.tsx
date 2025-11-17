@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button } => "@/components/ui/button";
 import { AlertTriangle, Lock } from "lucide-react";
 
 interface DeviceWarningDialogProps {
@@ -21,7 +21,7 @@ export function DeviceWarningDialog({ open, onClose, onNavigateToChangePassword 
           </DialogTitle>
           <DialogDescription className="text-center text-base pt-4 space-y-3">
             <p>
-              Parece que sua conta foi acessada de outro dispositivo.
+              Sua conta está sendo acessada de outro dispositivo.
             </p>
             <p className="font-semibold text-orange-400">
               Se não foi você ou se você não autorizou, recomendamos que altere sua senha imediatamente para proteger sua conta.
