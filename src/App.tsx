@@ -8,15 +8,12 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
-import LocationAdjustments from "./pages/LocationAdjustments"; // Import new page
-import { useDeviceAuthCheck } from "./hooks/use-device-auth-check"; // NEW IMPORT
+import LocationAdjustments from "./pages/LocationAdjustments";
 
 const queryClient = new QueryClient();
 
 function AuthEventBridge() {
   const navigate = useNavigate();
-  // NEW: Chama o hook de verificação de autenticação do dispositivo aqui
-  useDeviceAuthCheck(); // Isso lidará com as verificações de sessão específicas do dispositivo
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -35,13 +32,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}> {/* Adicionado future flags */}
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthEventBridge />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/adjust-locations" element={<LocationAdjustments />} /> {/* New route */}
+          <Route path="/adjust-locations" element={<LocationAdjustments />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

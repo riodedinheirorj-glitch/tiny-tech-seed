@@ -12,7 +12,6 @@ import { Eye, EyeOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { AdminSetupDialog } from "@/components/AdminSetupDialog";
-import { DeviceWarningDialog } from "@/components/DeviceWarningDialog"; // Import the new dialog
 
 // Função para traduzir erros do Supabase
 const translateSupabaseError = (errorMessage: string): string => {
@@ -53,10 +52,6 @@ export default function Auth() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeCredits, setWelcomeCredits] = useState(0);
   const [showAdminSetup, setShowAdminSetup] = useState(false);
-  const [showDeviceWarning, setShowDeviceWarning] = useState(false); // New state for device warning
-  const [targetRouteAfterLogin, setTargetRouteAfterLogin] = useState<string | null>(null); // To store where to navigate after warning
-  const [currentLoggedInUserId, setCurrentLoggedInUserId] = useState<string | null>(null); // New state to store user ID
-  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null); // New state to store device ID
 
   // Detectar recuperação de senha
   useEffect(() => {
@@ -138,49 +133,15 @@ export default function Auth() {
       if (error) throw error;
 
       const userId = data.user.id;
-      setCurrentLoggedInUserId(userId); // Armazena o ID do usuário
-
-      let deviceId = localStorage.getItem('rotasmart_device_id');
-      console.log("Auth.tsx: handleLogin - Retrieved deviceId from localStorage:", deviceId);
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem('rotasmart_device_id', deviceId);
-        console.log("Auth.tsx: handleLogin - Generated and set new deviceId in localStorage:", deviceId);
-      }
-      setCurrentDeviceId(deviceId); // Armazena o ID do dispositivo
-
-      console.log("Auth.tsx: handleLogin - Calling track-device-login with:", { userId, deviceId, userAgent: navigator.userAgent });
-      const { data: deviceTrackData, error: deviceTrackError } = await supabase.functions.invoke('track-device-login', {
-        body: {
-          user_id: userId,
-          device_id: deviceId,
-          user_agent: navigator.userAgent,
-        }
-      });
-
-      let shouldShowWarning = false;
-      if (deviceTrackError) {
-        console.error("Auth.tsx: Error tracking device login:", deviceTrackError);
-        toast.error("Erro ao registrar dispositivo. Tente novamente.");
-      } else if (deviceTrackData?.multipleDevicesDetected) {
-        shouldShowWarning = true;
-      }
-
       // Check if user is admin
       const roles = await getUserRole(userId);
       const destinationRoute = roles ? "/admin" : "/";
 
       toast.success("Login realizado com sucesso!");
       
-      if (shouldShowWarning) {
-        setTargetRouteAfterLogin(destinationRoute);
-        setShowDeviceWarning(true);
-      } else {
-        // If no warning, navigate directly after a small delay
-        setTimeout(() => {
-          navigate(destinationRoute);
-        }, 100); // Small delay to allow device tracking to settle
-      }
+      setTimeout(() => {
+        navigate(destinationRoute);
+      }, 100);
     } catch (error: any) {
       const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
       toast.error(errorMessage);
@@ -224,22 +185,6 @@ export default function Auth() {
         const initialCreditsAmount = 3;
         await addInitialCredits(newUserId, initialCreditsAmount);
         setWelcomeCredits(initialCreditsAmount);
-
-        let deviceId = localStorage.getItem('rotasmart_device_id');
-        console.log("Auth.tsx: handleSignup - Retrieved deviceId from localStorage:", deviceId);
-        if (!deviceId) {
-          deviceId = crypto.randomUUID();
-          localStorage.setItem('rotasmart_device_id', deviceId);
-          console.log("Auth.tsx: handleSignup - Generated and set new deviceId in localStorage:", deviceId);
-        }
-        console.log("Auth.tsx: handleSignup - Calling track-device-login with:", { userId: newUserId, deviceId, userAgent: navigator.userAgent });
-        await supabase.functions.invoke('track-device-login', {
-          body: {
-            user_id: newUserId,
-            device_id: deviceId,
-            user_agent: navigator.userAgent,
-          }
-        });
       }
       
       // Disparar confetes e mostrar popup de boas-vindas
@@ -327,52 +272,6 @@ export default function Auth() {
     }
   };
 
-  const handleContinueWithCurrentDevice = async () => {
-    if (!currentLoggedInUserId || !currentDeviceId) {
-      toast.error("Erro: Informações do usuário ou dispositivo ausentes.");
-      console.error("Auth.tsx: handleContinueWithCurrentDevice - Missing currentLoggedInUserId or currentDeviceId.");
-      return;
-    }
-
-    setLoading(true); // Mostra loading enquanto desloga outros dispositivos
-    try {
-      console.log("Auth.tsx: handleContinueWithCurrentDevice - Calling logout-other-devices with:", { userId: currentLoggedInUserId, currentDeviceId });
-      const { error } = await supabase.functions.invoke('logout-other-devices', {
-        body: {
-          user_id: currentLoggedInUserId,
-          current_device_id: currentDeviceId,
-        }
-      });
-
-      if (error) {
-        console.error("Auth.tsx: Error logging out other devices:", error);
-        toast.error("Erro ao deslogar outros dispositivos.");
-      } else {
-        toast.success("Outros dispositivos deslogados com sucesso!");
-      }
-    } catch (error: any) {
-      console.error("Auth.tsx: Unexpected error during logout-other-devices:", error);
-      toast.error("Erro inesperado ao deslogar outros dispositivos.");
-    } finally {
-      setLoading(false);
-      setShowDeviceWarning(false);
-      if (targetRouteAfterLogin) {
-        navigate(targetRouteAfterLogin);
-        setTargetRouteAfterLogin(null);
-      } else {
-        navigate("/");
-      }
-    }
-  };
-
-  const handleNavigateToChangePassword = () => {
-    setShowDeviceWarning(false);
-    setMode("reset");
-    setEmail("");
-    setPassword("");
-    setConfirmPassword("");
-  };
-
   return (
     <>
       <WelcomeDialog 
@@ -383,12 +282,6 @@ export default function Auth() {
       <AdminSetupDialog
         open={showAdminSetup}
         onOpenChange={setShowAdminSetup}
-      />
-      <DeviceWarningDialog
-        open={showDeviceWarning}
-        onOpenChange={setShowDeviceWarning} // Mantém para controle geral do diálogo
-        onContinue={handleContinueWithCurrentDevice} // Nova prop para a ação "Continuar com esse"
-        onNavigateToChangePassword={handleNavigateToChangePassword}
       />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-background/95 backdrop-blur-sm border-2 border-primary/20">
