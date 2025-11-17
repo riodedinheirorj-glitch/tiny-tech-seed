@@ -255,13 +255,13 @@ const Index = () => {
 
       setStatus("Agrupando por endereço e complemento...");
 
-      // NEW: Two-tier grouping logic
+      // NEW: Primary grouping by normalized street and number
       const primaryGrouped: { [key: string]: ProcessedAddress[] } = {};
       allGeocodedData.forEach((row: ProcessedAddress) => {
         const addressToGroup = row.correctedAddress || row.originalAddress;
         const primaryGroupKey = extractNormalizedStreetAndNumber(addressToGroup);
 
-        if (!primaryGroupKey) { // Skip if primary key cannot be determined
+        if (!primaryGroupKey) {
           console.warn("Skipping row due to empty primary group key:", row);
           return;
         }
@@ -275,71 +275,85 @@ const Index = () => {
       const finalGroupedResults: ProcessedAddress[] = [];
 
       Object.values(primaryGrouped).forEach(primaryGroupRows => {
-        const secondaryGrouped: { [key: string]: ProcessedAddress[] } = {};
+        const firstRow = primaryGroupRows[0]; // Use the first row as a base for other fields
+        let consolidatedStatus: ProcessedAddress['status'] = 'valid';
+        let consolidatedLatitude = firstRow.latitude;
+        let consolidatedLongitude = firstRow.longitude;
+        
+        const allSequences: string[] = [];
+        let hasPending = false;
+        let hasCorrected = false;
+        let hasLearned = false;
+
+        let allComplementsAreConsistent = true;
+        let firstNormalizedComplement: string | null = null;
+        let finalConsolidatedComplement = "";
+
         primaryGroupRows.forEach(row => {
-          const secondaryGroupKey = row.normalizedComplement || ""; // Use normalized complement for secondary grouping
-          if (!secondaryGrouped[secondaryGroupKey]) {
-            secondaryGrouped[secondaryGroupKey] = [];
+          if (row.status === 'pending') hasPending = true;
+          if (row.status === 'corrected') hasCorrected = true;
+          if (row.learned) hasLearned = true;
+
+          // Aggregate sequences
+          if (sequenceColumn && row[sequenceColumn]) {
+            const sequences = String(row[sequenceColumn]).split('; ').map(s => s.trim()).filter(Boolean);
+            allSequences.push(...sequences);
+          } else if (!sequenceColumn) {
+            allSequences.push(String(primaryGroupRows.indexOf(row) + 1));
           }
-          secondaryGrouped[secondaryGroupKey].push(row);
+
+          // Prioritize manually corrected coordinates if available
+          if (row.status === 'corrected' && row.latitude && row.longitude) {
+            consolidatedLatitude = row.latitude;
+            consolidatedLongitude = row.longitude;
+          }
+
+          // Complement Consistency Check
+          if (row.normalizedComplement && row.normalizedComplement !== "") {
+            if (firstNormalizedComplement === null) {
+              firstNormalizedComplement = row.normalizedComplement;
+            } else if (row.normalizedComplement !== firstNormalizedComplement) {
+              allComplementsAreConsistent = false;
+            }
+          } else { // If any row has an empty normalizedComplement
+            allComplementsAreConsistent = false;
+          }
         });
 
-        Object.values(secondaryGrouped).forEach(finalGroupRows => {
-          // Consolidate each final group
-          const firstRow = finalGroupRows[0];
-          let consolidatedStatus: ProcessedAddress['status'] = 'valid';
-          let consolidatedLatitude = firstRow.latitude;
-          let consolidatedLongitude = firstRow.longitude;
-          let consolidatedComplement = firstRow.complement; // Keep the complement from the first row for display
+        // Determine final status for the grouped entry
+        if (hasPending) {
+          consolidatedStatus = 'pending';
+        } else if (hasCorrected) {
+          consolidatedStatus = 'corrected';
+        } else {
+          consolidatedStatus = 'valid';
+        }
 
-          const allSequences: string[] = [];
-          let hasPending = false;
-          let hasCorrected = false;
-          let hasLearned = false;
+        // Determine final consolidated complement
+        if (allComplementsAreConsistent && firstNormalizedComplement !== null) {
+          finalConsolidatedComplement = firstNormalizedComplement;
+        } else {
+          finalConsolidatedComplement = ""; // If not all consistent, or all empty, then no complement
+        }
 
-          finalGroupRows.forEach(row => {
-            if (row.status === 'pending') hasPending = true;
-            if (row.status === 'corrected') hasCorrected = true;
-            if (row.learned) hasLearned = true;
+        // Remove duplicates and join sequences
+        const uniqueSequences = Array.from(new Set(allSequences)).join(';');
 
-            // Aggregate sequences
-            if (sequenceColumn && row[sequenceColumn]) {
-              const sequences = String(row[sequenceColumn]).split('; ').map(s => s.trim()).filter(Boolean);
-              allSequences.push(...sequences);
-            } else if (!sequenceColumn) {
-              // If no sequence column, each row is its own sequence
-              allSequences.push(String(finalGroupRows.indexOf(row) + 1)); // Use row index as sequence if no column
-            }
+        // Determine the correctedAddress for the grouped item
+        // This should be the street and number part of the first row's correctedAddress
+        const baseAddressPart = firstRow.correctedAddress?.split(',').slice(0, 2).join(',').trim() ||
+                                firstRow.originalAddress?.split(',').slice(0, 2).join(',').trim() ||
+                                extractNormalizedStreetAndNumber(firstRow.correctedAddress || firstRow.originalAddress); // Fallback to normalized key if all else fails
 
-            // Prioritize manually corrected coordinates if available
-            if (row.status === 'corrected' && row.latitude && row.longitude) {
-              consolidatedLatitude = row.latitude;
-              consolidatedLongitude = row.longitude;
-            }
-          });
-
-          // Determine final status for the grouped entry
-          if (hasPending) {
-            consolidatedStatus = 'pending';
-          } else if (hasCorrected) {
-            consolidatedStatus = 'corrected';
-          } else {
-            consolidatedStatus = 'valid';
-          }
-
-          // Remove duplicates and join sequences
-          const uniqueSequences = Array.from(new Set(allSequences)).join(';');
-
-          finalGroupedResults.push({
-            ...firstRow, // Keep other original fields from the first row
-            correctedAddress: firstRow.correctedAddress || firstRow.originalAddress,
-            complement: consolidatedComplement, // Use the representative complement
-            latitude: consolidatedLatitude,
-            longitude: consolidatedLongitude,
-            status: consolidatedStatus,
-            learned: hasLearned,
-            [sequenceColumn || 'sequence']: uniqueSequences, // Use the actual sequence column name or 'sequence'
-          });
+        finalGroupedResults.push({
+          ...firstRow, // Keep other original fields from the first row
+          correctedAddress: baseAddressPart, // Use the base address part
+          complement: finalConsolidatedComplement, // Use the determined consolidated complement
+          latitude: consolidatedLatitude,
+          longitude: consolidatedLongitude,
+          status: consolidatedStatus,
+          learned: hasLearned,
+          [sequenceColumn || 'sequence']: uniqueSequences, // Use the actual sequence column name or 'sequence'
         });
       });
 
