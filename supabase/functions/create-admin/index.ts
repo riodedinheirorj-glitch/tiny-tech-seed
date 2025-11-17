@@ -8,16 +8,29 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
+    console.log("OPTIONS request received for create-admin.");
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    console.log("Received request for create-admin.");
     // Verify setup token for security
     const setupToken = req.headers.get("X-Setup-Token");
     const expectedToken = Deno.env.get("ADMIN_SETUP_TOKEN");
     
-    if (!expectedToken || setupToken !== expectedToken) {
-      console.error("Unauthorized admin creation attempt");
+    if (!expectedToken) {
+      console.error("ADMIN_SETUP_TOKEN environment variable is not set.");
+      return new Response(
+        JSON.stringify({ error: "Configuration error: ADMIN_SETUP_TOKEN is not set." }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+
+    if (setupToken !== expectedToken) {
+      console.warn("Unauthorized admin creation attempt: Invalid setup token provided.");
       return new Response(
         JSON.stringify({ error: "Unauthorized. Valid setup token required." }),
         { 
@@ -26,12 +39,13 @@ serve(async (req) => {
         }
       );
     }
+    console.log("Setup token validated successfully.");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing Supabase environment variables in Edge Function.");
+      console.error("Missing Supabase environment variables (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY) in Edge Function.");
       return new Response(
         JSON.stringify({ error: "Configuration error: Supabase URL or Service Role Key not found." }),
         { 
@@ -40,6 +54,7 @@ serve(async (req) => {
         }
       );
     }
+    console.log("Supabase environment variables found.");
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -49,12 +64,18 @@ serve(async (req) => {
     });
 
     // Check if admin already exists
-    const { data: existingAdmin } = await supabaseAdmin
+    console.log("Checking for existing admin user role...");
+    const { data: existingAdmin, error: existingAdminError } = await supabaseAdmin
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin")
       .limit(1)
       .maybeSingle();
+
+    if (existingAdminError) {
+      console.error("Error checking for existing admin role:", existingAdminError.message);
+      throw existingAdminError;
+    }
 
     if (existingAdmin) {
       console.log("Admin role already exists for user:", existingAdmin.user_id);
@@ -71,9 +92,10 @@ serve(async (req) => {
         }
       );
     }
+    console.log("No existing admin role found. Proceeding to create new admin.");
 
     // Create admin user
-    console.log("Creating admin user...");
+    console.log("Attempting to create admin user in Supabase Auth...");
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: "admin@deliveryflow.com",
       password: "admin@123",
@@ -84,13 +106,13 @@ serve(async (req) => {
     });
 
     if (authError) {
-      console.error("Error creating auth user:", authError);
+      console.error("Error creating auth user:", authError.message);
       throw authError;
     }
-
-    console.log("Admin user created in auth:", authData.user.id);
+    console.log("Admin user created in auth with ID:", authData.user.id);
 
     // Add admin role
+    console.log("Attempting to add 'admin' role to the new user...");
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
       .insert({
@@ -98,12 +120,11 @@ serve(async (req) => {
         role: "admin",
       });
 
-    if (roleError && !roleError.message.includes("duplicate")) {
-      console.error("Error adding admin role:", roleError);
+    if (roleError && !roleError.message.includes("duplicate")) { // Check for duplicate error specifically
+      console.error("Error adding admin role:", roleError.message);
       throw roleError;
     }
-
-    console.log("Admin role added successfully");
+    console.log("Admin role added successfully for user:", authData.user.id);
 
     return new Response(
       JSON.stringify({ 
@@ -122,6 +143,7 @@ serve(async (req) => {
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("Unhandled error in create-admin function:", errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
