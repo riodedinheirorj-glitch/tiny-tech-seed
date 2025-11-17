@@ -67,6 +67,7 @@ export interface ProcessedAddress {
   searchUsed?: string;
   note?: string;
   display_name?: string;
+  learned?: boolean; // Adicionado para indicar se a localização foi aprendida
   [key: string]: any; // Allow other original fields
 }
 

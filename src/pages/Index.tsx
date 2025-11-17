@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { getUserRole, insertDownload, getUserCredits, deductCredit } from "@/lib/supabase-helpers";
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
 import { normalizeCoordinate } from "@/lib/coordinate-helpers"; // Import new helper
+import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
+import { isValidCoordinate } from "@/lib/validate-coordinates"; // Import new validation helper
 
 const Index = () => {
   const navigate = useNavigate();
@@ -150,24 +152,67 @@ const Index = () => {
       const latColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('latitude') || key.toLowerCase().includes('lat'));
       const lonColumn = Object.keys(jsonData[0] || {}).find(key => key.toLowerCase().includes('longitude') || key.toLowerCase().includes('lon'));
 
+      // --- Pre-processamento: Normalização e Aprendizado Automático ---
+      const preProcessedData = jsonData.map(row => {
+        const rawAddress = String(row[addressColumn] || '').trim();
+        const bairro = String(row.bairro || '').trim();
+        const cidade = String(row.cidade || '').trim();
+        const estado = String(row.estado || '').trim();
+
+        let latFromSheet = latColumn ? normalizeCoordinate(row[latColumn]) : undefined;
+        let lonFromSheet = lonColumn ? normalizeCoordinate(row[lonColumn]) : undefined;
+
+        let finalLat: number | undefined = undefined;
+        let finalLon: number | undefined = undefined;
+        let learned = false;
+
+        // 1. Tenta carregar do aprendizado automático
+        const learningKey = buildLearningKey({
+          ...row,
+          originalAddress: rawAddress,
+          bairro,
+          cidade,
+          estado,
+        } as ProcessedAddress); // Cast para ProcessedAddress para buildLearningKey
+
+        const learnedLocation = loadLearnedLocation(learningKey);
+
+        if (learnedLocation && isValidCoordinate(learnedLocation.lat, learnedLocation.lng)) {
+          finalLat = learnedLocation.lat;
+          finalLon = learnedLocation.lng;
+          learned = true;
+        } else if (isValidCoordinate(latFromSheet, lonFromSheet)) {
+          // 2. Se não houver aprendizado, usa as coordenadas da planilha se forem válidas
+          finalLat = latFromSheet;
+          finalLon = lonFromSheet;
+        }
+
+        return {
+          ...row,
+          rawAddress,
+          bairro,
+          cidade,
+          estado,
+          latitude: finalLat?.toFixed(6),
+          longitude: finalLon?.toFixed(6),
+          learned, // Adiciona a flag de aprendizado
+        };
+      });
+
       // --- Geocoding and Correction Step (Batch Processing) ---
       setProgress(30);
-      setStatus(`Iniciando validação e correção de ${jsonData.length} endereços em lotes...`);
+      setStatus(`Iniciando validação e correção de ${preProcessedData.length} endereços em lotes...`);
       
       const BATCH_SIZE = 50; // Process 50 addresses at a time
       const allGeocodedData: ProcessedAddress[] = [];
-      const totalAddresses = jsonData.length;
+      const totalAddresses = preProcessedData.length;
 
       for (let i = 0; i < totalAddresses; i += BATCH_SIZE) {
-        const batch = jsonData.slice(i, i + BATCH_SIZE).map(row => ({
+        const batch = preProcessedData.slice(i, i + BATCH_SIZE).map(row => ({
           ...row,
-          rawAddress: String(row[addressColumn] || '').trim(),
-          bairro: String(row.bairro || '').trim(),
-          cidade: String(row.cidade || '').trim(),
-          estado: String(row.estado || '').trim(),
-          // Pass original latitude and longitude if they exist in the spreadsheet, normalized
-          latitude: latColumn ? normalizeCoordinate(row[latColumn])?.toFixed(6) : undefined,
-          longitude: lonColumn ? normalizeCoordinate(row[lonColumn])?.toFixed(6) : undefined,
+          // Garante que latitude e longitude são passadas como string para a Edge Function
+          latitude: row.latitude ? String(row.latitude) : undefined,
+          longitude: row.longitude ? String(row.longitude) : undefined,
         }));
 
         setStatus(`Processando lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(totalAddresses / BATCH_SIZE)} (${i + 1}-${Math.min(i + BATCH_SIZE, totalAddresses)})...`);

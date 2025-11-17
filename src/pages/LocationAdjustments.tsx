@@ -4,10 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MapPin, Edit, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { MapPin, Edit, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { ProcessedAddress } from "@/lib/nominatim-service";
 import AddressMapEditor from "@/components/AddressMapEditor";
 import { toast } from "sonner";
+import { buildLearningKey, saveLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
 
 interface LocationAdjustmentsState {
   initialProcessedData: ProcessedAddress[];
@@ -49,16 +50,23 @@ export default function LocationAdjustments() {
     if (selectedAddressIndex !== null) {
       setAddresses((prevAddresses) => {
         const newAddresses = [...prevAddresses];
-        newAddresses[selectedAddressIndex] = {
+        const updatedAddress = {
           ...newAddresses[selectedAddressIndex],
           latitude: coords.lat.toFixed(6), // Formatar para 6 casas decimais
           longitude: coords.lng.toFixed(6), // Formatar para 6 casas decimais
           status: 'corrected', // Marcar como corrigido manualmente
           note: 'Ajustado manualmente no mapa',
+          learned: true, // Marcar como aprendido
         };
+        newAddresses[selectedAddressIndex] = updatedAddress;
+
+        // Salvar no aprendizado automático
+        const learningKey = buildLearningKey(updatedAddress);
+        saveLearnedLocation(learningKey, coords.lat, coords.lng);
+
         return newAddresses;
       });
-      toast.success("Localização atualizada com sucesso!");
+      toast.success("Localização atualizada com sucesso e aprendida para uso futuro!");
     }
     setSelectedAddressIndex(null); // Fechar o editor após salvar
   };
@@ -162,6 +170,7 @@ export default function LocationAdjustments() {
                             {address.status === 'valid' ? 'Válido' :
                              address.status === 'corrected' ? 'Corrigido' :
                              'Pendente'}
+                             {address.learned && <Sparkles className="ml-1 h-3 w-3 text-yellow-400" />}
                           </span>
                         ) : (
                           String(address[col as keyof ProcessedAddress] ?? '')
