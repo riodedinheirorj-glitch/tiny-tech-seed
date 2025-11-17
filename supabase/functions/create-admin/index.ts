@@ -27,8 +27,19 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing Supabase environment variables in Edge Function.");
+      return new Response(
+        JSON.stringify({ error: "Configuration error: Supabase URL or Service Role Key not found." }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
