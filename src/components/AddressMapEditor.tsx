@@ -27,7 +27,7 @@ export default function AddressMapEditor({
   initialLng,
   addressName,
   onSave,
-}: AddressMapMapEditorProps) {
+}: AddressMapEditorProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -53,8 +53,8 @@ export default function AddressMapEditor({
       } else {
         mapRef.current = new maplibregl.Map({
           container: mapContainer.current,
-          // Alterado para o estilo OSM Bright da Geoapify
-          style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${import.meta.env.VITE_GEOAPIFY_API_KEY || 'YOUR_GEOAPIFY_API_KEY'}`,
+          // Alterado para o estilo Positron GL da CartoDB (não requer chave de API)
+          style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
           center: [initialLng, initialLat],
           zoom: 15,
         });
