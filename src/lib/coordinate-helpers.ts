@@ -24,51 +24,65 @@ export function extractAddressComplement(fullAddress: string): string {
 }
 
 /**
- * Extrai e normaliza o nome da rua e o número da casa de um endereço.
+ * Extrai e normaliza o nome da rua e o número da casa de um endereço para fins de agrupamento e aprendizado.
  * Ignora sufixos como 'a', 'b', 'fundos' no número da casa.
  * Ex: "Estrada São Tarcísio, 116, veterinaria" -> "estrada sao tarcisio 116"
  * Ex: "Rua Exemplo, 123a" -> "rua exemplo 123"
+ * Ex: "Av. Brasil S/N" -> "avenida brasil"
  * @param fullAddress A string completa do endereço.
  * @returns Uma string normalizada contendo a rua e o número principal.
  */
 export function extractNormalizedStreetAndNumber(fullAddress: string): string {
   if (!fullAddress) return "";
 
-  // Remove complement first to simplify street and number extraction
-  const addressWithoutComplement = fullAddress.split(',').slice(0, 2).join(',').trim();
-
-  // Regex para capturar o nome da rua e o número (ignorando sufixos)
-  // Ex: "Rua Exemplo, 123a" -> ["Rua Exemplo", "123a"]
-  // Ex: "Av. Principal 456" -> ["Av. Principal", "456"]
-  const match = addressWithoutComplement.match(/^(.*?),\s*(\d+)([a-zA-Z\s\-\/]*)$/);
-
-  let streetPart = addressWithoutComplement;
-  let numberPart = "";
-
-  if (match) {
-    streetPart = match[1].trim();
-    numberPart = match[2].trim(); // Only the numerical part
-  } else {
-    // Fallback if comma-separated number not found, try to find a number at the end
-    const lastNumberMatch = addressWithoutComplement.match(/^(.*?)\s+(\d+)$/);
-    if (lastNumberMatch) {
-      streetPart = lastNumberMatch[1].trim();
-      numberPart = lastNumberMatch[2].trim();
-    }
-  }
-
-  // Normalize street part: lowercase, remove accents, common abbreviations
-  const normalizedStreet = streetPart
+  // Step 1: Normalize the entire address string
+  let normalizedAddress = fullAddress
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
     .toLowerCase()
-    .replace(/(av|av\.|avenida)\b/g, "avenida")
+    .replace(/(av|av\.|avenida)\b/g, "avenida") // Standardize abbreviations
     .replace(/\b(r|r\.)\b/g, "rua")
     .replace(/(rod|rod\.|rodovia)\b/g, "rodovia")
-    .replace(/[^\w\s]/g, "") // Remove non-alphanumeric except spaces
+    .replace(/\b(travessa|tv)\b/g, "travessa")
+    .replace(/\b(alameda|al)\b/g, "alameda")
+    .replace(/\b(praca|pc)\b/g, "praca")
+    .replace(/\b(largo|lg)\b/g, "largo")
+    .replace(/\b(quadra|q)\b/g, "quadra")
+    .replace(/\b(lote|lt)\b/g, "lote")
+    .replace(/\b(sn|s\/n)\b/g, "") // Remove S/N (sem numero)
+    .replace(/[^\w\s\d\-\,\.]/g, "") // Allow alphanumeric, spaces, hyphens, commas, periods
     .replace(/\s+/g, " ") // Collapse multiple spaces
     .trim();
 
-  // Combine normalized street and number
-  return `${normalizedStreet} ${numberPart}`.trim();
+  let streetName = normalizedAddress;
+  let houseNumber = "";
+
+  // Regex to find a street name followed by a number (digits only, ignoring suffixes like 'a', 'b')
+  // It looks for:
+  // (.*?) - any characters (street name)
+  // (?:,\s*|\s+) - non-capturing group for comma+space or just space separator
+  // (\d+) - captures the digits of the house number
+  // (?:[a-z\s\-\/,\.]*$) - non-capturing group for optional suffix/complement at the end
+  const match = normalizedAddress.match(/(.*?)(?:,\s*|\s+)(\d+)(?:[a-z\s\-\/,\.]*)$/);
+
+  if (match) {
+    streetName = match[1].trim();
+    houseNumber = match[2].trim(); // This will be just the digits, e.g., "116" from "116a"
+  } else {
+    // Fallback: if no clear number at the end, try to find the first number that could be a house number
+    // This is less reliable but better than nothing.
+    const firstNumberMatch = normalizedAddress.match(/(.*?)\s*(\d+)/);
+    if (firstNumberMatch) {
+      streetName = firstNumberMatch[1].trim();
+      houseNumber = firstNumberMatch[2].trim();
+    }
+  }
+
+  // If a house number was found, combine it with the street name.
+  // Otherwise, just return the normalized street name.
+  if (houseNumber) {
+    return `${streetName} ${houseNumber}`.trim();
+  } else {
+    return streetName;
+  }
 }

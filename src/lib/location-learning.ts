@@ -11,15 +11,12 @@ export function buildLearningKey(row: ProcessedAddress): string {
   const fullAddress = (row.correctedAddress || row.originalAddress || "").trim();
   const normalizedStreetAndNumber = extractNormalizedStreetAndNumber(fullAddress);
   
-  // Use the normalized street and number as the primary part of the key
-  // You can still include other relevant fields if they add unique context
   const bairro = (row.bairro || "").trim();
   const cidade = (row.cidade || "").trim();
   const estado = (row.estado || "").trim();
-  const complement = (row.complement || "").trim();
 
-  // Combine normalized street/number with other relevant fields
-  return `${normalizedStreetAndNumber}_${bairro}_${cidade}_${estado}_${complement}`
+  // Combine normalized street/number with other relevant fields, EXCLUDING complement for coordinate learning
+  return `${normalizedStreetAndNumber}_${bairro}_${cidade}_${estado}`
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_]/g, "")
     .toLowerCase();

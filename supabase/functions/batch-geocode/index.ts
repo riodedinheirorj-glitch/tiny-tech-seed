@@ -15,9 +15,22 @@ function sleep(ms: number) {
 
 function normalizeText(s: string) {
   if (!s) return "";
-  const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  // Keep numbers, alphanumeric, whitespace, hyphens, and commas
-  return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
+  return s.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+    .toLowerCase()
+    .replace(/(av|av\.|avenida)\b/g, "avenida") // Standardize abbreviations
+    .replace(/\b(r|r\.)\b/g, "rua")
+    .replace(/(rod|rod\.|rodovia)\b/g, "rodovia")
+    .replace(/\b(travessa|tv)\b/g, "travessa")
+    .replace(/\b(alameda|al)\b/g, "alameda")
+    .replace(/\b(praca|pc)\b/g, "praca")
+    .replace(/\b(largo|lg)\b/g, "largo")
+    .replace(/\b(quadra|q)\b/g, "quadra")
+    .replace(/\b(lote|lt)\b/g, "lote")
+    .replace(/\b(sn|s\/n)\b/g, "") // Remove S/N (sem numero)
+    .replace(/[^\w\s\d\-\,\.]/g, "") // Allow alphanumeric, spaces, hyphens, commas, periods
+    .replace(/\s+/g, " ") // Collapse multiple spaces
+    .trim();
 }
 
 // New helper function to detect "quadra e lote" patterns
