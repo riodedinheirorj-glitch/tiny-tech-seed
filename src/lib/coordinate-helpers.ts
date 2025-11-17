@@ -24,6 +24,42 @@ export function extractAddressComplement(fullAddress: string): string {
 }
 
 /**
+ * Normaliza uma string de complemento para um formato canônico,
+ * agrupando variações que se referem ao mesmo tipo de local.
+ * @param complement O complemento original do endereço.
+ * @returns O complemento normalizado.
+ */
+export function normalizeComplement(complement: string | undefined | null): string {
+  if (!complement) return "";
+  let normalized = complement.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+  // Padrões para "loja de celular"
+  if (/(loja|assistencia|manutencao|conserto)\s*(de|para|para\s*|)\s*celular(es)?/.test(normalized)) {
+    return "loja de celular";
+  }
+  // Adicione outros padrões conforme necessário
+  // Ex: "farmacia" -> "farmacia"
+  if (/(farmacia|drogaria)/.test(normalized)) {
+    return "farmacia";
+  }
+  // Ex: "padaria" -> "padaria"
+  if (/(padaria|panificadora)/.test(normalized)) {
+    return "padaria";
+  }
+  // Ex: "restaurante" -> "restaurante"
+  if (/(restaurante|lanchonete|bar)/.test(normalized)) {
+    return "restaurante";
+  }
+  // Ex: "escola" -> "escola"
+  if (/(escola|colegio|instituto)/.test(normalized)) {
+    return "escola";
+  }
+
+  // Se não houver padrão, retorna o complemento normalizado original
+  return normalized;
+}
+
+/**
  * Extrai e normaliza o nome da rua e o número da casa de um endereço para fins de agrupamento e aprendizado.
  * Ignora sufixos como 'a', 'b', 'fundos' no número da casa.
  * Ex: "Estrada São Tarcísio, 116, veterinaria" -> "estrada sao tarcisio 116"
@@ -35,8 +71,18 @@ export function extractAddressComplement(fullAddress: string): string {
 export function extractNormalizedStreetAndNumber(fullAddress: string): string {
   if (!fullAddress) return "";
 
-  // Step 1: Normalize the entire address string
-  let normalizedAddress = fullAddress
+  // Remove complement first to simplify street and number extraction
+  // This regex tries to find a pattern like "Street Name, Number, Complement"
+  // and takes only "Street Name, Number" part.
+  const addressWithoutComplementMatch = fullAddress.match(/^(.*?),\s*(\d+[a-zA-Z]?)(?:,\s*.*)?$/);
+  let addressToParse = fullAddress;
+
+  if (addressWithoutComplementMatch) {
+    addressToParse = `${addressWithoutComplementMatch[1]}, ${addressWithoutComplementMatch[2]}`;
+  }
+
+  // Normalize street part: lowercase, remove accents, common abbreviations
+  let normalizedAddress = addressToParse
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
     .toLowerCase()

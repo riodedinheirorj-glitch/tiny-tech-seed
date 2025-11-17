@@ -13,7 +13,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { getUserRole, processDownloadRpc, getUserCredits } from "@/lib/supabase-helpers"; // Updated import
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
-import { normalizeCoordinate, extractAddressComplement, extractNormalizedStreetAndNumber } from "@/lib/coordinate-helpers"; // Import new helper
+import { normalizeCoordinate, extractAddressComplement, extractNormalizedStreetAndNumber, normalizeComplement } from "@/lib/coordinate-helpers"; // Import new helper
 import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
 import { isValidCoordinate } from "@/lib/validate-coordinates"; // Import new validation helper
 
@@ -181,7 +181,8 @@ const Index = () => {
         const bairro = bairroColumn ? String(row[bairroColumn] || '').trim() : '';
         const cidade = cidadeColumn ? String(row[cidadeColumn] || '').trim() : '';
         const estado = estadoColumn ? String(row[estadoColumn] || '').trim() : '';
-        const complement = extractAddressComplement(rawAddress); // NEW: Extract complement
+        const complement = extractAddressComplement(rawAddress); // Extract complement
+        const normalizedComplement = normalizeComplement(complement); // Normalize complement
 
         let latFromSheet = latColumn ? normalizeCoordinate(row[latColumn]) : undefined;
         let lonFromSheet = lonColumn ? normalizeCoordinate(row[lonColumn]) : undefined;
@@ -197,8 +198,8 @@ const Index = () => {
           bairro,
           cidade,
           estado,
-          complement, // NEW: Include complement in learning key
-        } as ProcessedAddress); // Cast para ProcessedAddress para buildLearningKey
+          // complement: normalizedComplement, // Removed from learning key as per previous turn
+        } as ProcessedAddress);
 
         const learnedLocation = loadLearnedLocation(learningKey);
 
@@ -218,10 +219,11 @@ const Index = () => {
           bairro,
           cidade,
           estado,
-          complement, // NEW: Add complement to preProcessedData
+          complement, // Keep original complement for display
+          normalizedComplement, // Store normalized complement for grouping
           latitude: finalLat?.toFixed(6),
           longitude: finalLon?.toFixed(6),
-          learned, // Adiciona a flag de aprendizado
+          learned,
         };
       });
 
@@ -251,58 +253,108 @@ const Index = () => {
         setProgress(30 + geocodeProgress);
       }
 
-      setStatus("Agrupando por endereço e complemento..."); // Updated status
-      // --- END Geocoding ---
+      setStatus("Agrupando por endereço e complemento...");
 
-      // NEW: Group by normalized street and number
-      const grouped: {
-        [key: string]: ProcessedAddress[];
-      } = {};
+      // NEW: Two-tier grouping logic
+      const primaryGrouped: { [key: string]: ProcessedAddress[] } = {};
       allGeocodedData.forEach((row: ProcessedAddress) => {
         const addressToGroup = row.correctedAddress || row.originalAddress;
-        const groupKey = extractNormalizedStreetAndNumber(addressToGroup); // Use normalized street and number for grouping
+        const primaryGroupKey = extractNormalizedStreetAndNumber(addressToGroup);
 
-        if (!grouped[groupKey]) {
-          grouped[groupKey] = [];
-        }
-        grouped[groupKey].push(row);
-      });
-
-      // Process each group
-      const results = Object.entries(grouped).map(([groupKey, rows]) => {
-        // Take the first record as base, but ensure corrected address and coords are used
-        const firstRow = {
-          ...rows[0],
-          // The correctedAddress should reflect the primary address for the group
-          correctedAddress: rows[0].correctedAddress || rows[0].originalAddress, 
-          latitude: rows[0].latitude, // Use the first row's coordinates for the group
-          longitude: rows[0].longitude,
-          complement: rows[0].complement, // Ensure complement is kept
-        };
-
-        // If there's a sequence column, join all values into the original column
-        if (sequenceColumn) {
-          const sequences = rows.map(r => String(r[sequenceColumn] || '')).filter(s => s && s.trim() !== '').join('; ');
-          firstRow[sequenceColumn] = sequences;
+        if (!primaryGroupKey) { // Skip if primary key cannot be determined
+          console.warn("Skipping row due to empty primary group key:", row);
+          return;
         }
 
-        return firstRow;
+        if (!primaryGrouped[primaryGroupKey]) {
+          primaryGrouped[primaryGroupKey] = [];
+        }
+        primaryGrouped[primaryGroupKey].push(row);
       });
-      
+
+      const finalGroupedResults: ProcessedAddress[] = [];
+
+      Object.values(primaryGrouped).forEach(primaryGroupRows => {
+        const secondaryGrouped: { [key: string]: ProcessedAddress[] } = {};
+        primaryGroupRows.forEach(row => {
+          const secondaryGroupKey = row.normalizedComplement || ""; // Use normalized complement for secondary grouping
+          if (!secondaryGrouped[secondaryGroupKey]) {
+            secondaryGrouped[secondaryGroupKey] = [];
+          }
+          secondaryGrouped[secondaryGroupKey].push(row);
+        });
+
+        Object.values(secondaryGrouped).forEach(finalGroupRows => {
+          // Consolidate each final group
+          const firstRow = finalGroupRows[0];
+          let consolidatedStatus: ProcessedAddress['status'] = 'valid';
+          let consolidatedLatitude = firstRow.latitude;
+          let consolidatedLongitude = firstRow.longitude;
+          let consolidatedComplement = firstRow.complement; // Keep the complement from the first row for display
+
+          const allSequences: string[] = [];
+          let hasPending = false;
+          let hasCorrected = false;
+          let hasLearned = false;
+
+          finalGroupRows.forEach(row => {
+            if (row.status === 'pending') hasPending = true;
+            if (row.status === 'corrected') hasCorrected = true;
+            if (row.learned) hasLearned = true;
+
+            // Aggregate sequences
+            if (sequenceColumn && row[sequenceColumn]) {
+              const sequences = String(row[sequenceColumn]).split('; ').map(s => s.trim()).filter(Boolean);
+              allSequences.push(...sequences);
+            } else if (!sequenceColumn) {
+              // If no sequence column, each row is its own sequence
+              allSequences.push(String(finalGroupRows.indexOf(row) + 1)); // Use row index as sequence if no column
+            }
+
+            // Prioritize manually corrected coordinates if available
+            if (row.status === 'corrected' && row.latitude && row.longitude) {
+              consolidatedLatitude = row.latitude;
+              consolidatedLongitude = row.longitude;
+            }
+          });
+
+          // Determine final status for the grouped entry
+          if (hasPending) {
+            consolidatedStatus = 'pending';
+          } else if (hasCorrected) {
+            consolidatedStatus = 'corrected';
+          } else {
+            consolidatedStatus = 'valid';
+          }
+
+          // Remove duplicates and join sequences
+          const uniqueSequences = Array.from(new Set(allSequences)).join(';');
+
+          finalGroupedResults.push({
+            ...firstRow, // Keep other original fields from the first row
+            correctedAddress: firstRow.correctedAddress || firstRow.originalAddress,
+            complement: consolidatedComplement, // Use the representative complement
+            latitude: consolidatedLatitude,
+            longitude: consolidatedLongitude,
+            status: consolidatedStatus,
+            learned: hasLearned,
+            [sequenceColumn || 'sequence']: uniqueSequences, // Use the actual sequence column name or 'sequence'
+          });
+        });
+      });
+
       console.log("Total de linhas originais:", jsonData.length);
-      console.log("Total de endereços únicos (agrupados por rua e número normalizados):", results.length); // Updated log
+      console.log("Total de endereços únicos (agrupados por rua, número e complemento normalizado):", finalGroupedResults.length);
       setProgress(90);
       setStatus("Finalizando...");
-      // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT
       
-      setProcessedData(results);
-      setTotalSequencesCount(calculatedTotalSequences); // Store total count of original sequences
+      setProcessedData(finalGroupedResults);
+      setTotalSequencesCount(calculatedTotalSequences);
       setProgress(100);
       setIsProcessing(false);
 
-      console.log("Dados processados antes da navegação:", results); // LOG ADDED
-      // Navigate to the new adjustment page
-      navigate("/adjust-locations", { state: { initialProcessedData: results, totalOriginalSequences: calculatedTotalSequences } });
+      console.log("Dados processados antes da navegação:", finalGroupedResults);
+      navigate("/adjust-locations", { state: { initialProcessedData: finalGroupedResults, totalOriginalSequences: calculatedTotalSequences } });
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
       toast.error(error instanceof Error ? error.message : "Verifique o formato e tente novamente.");
