@@ -141,7 +141,8 @@ serve(async (req)=>{
 
       let finalLat: string | undefined = undefined;
       let finalLon: string | undefined = undefined;
-      let finalDisplayName: string | undefined = undefined;
+      let finalCorrectedAddress: string | undefined = undefined; // Renamed for clarity
+      let fullGeocodedAddress: string | undefined = undefined; // New field for verbose display_name
 
       const originalLatNum = parseCoordinate(row.latitude);
       const originalLonNum = parseCoordinate(row.longitude);
@@ -153,12 +154,16 @@ serve(async (req)=>{
       let locationIqMatch = false;
 
       console.log(`--- Processing address ${i + 1} ---`);
-      console.log(`  Raw Input Row: ${JSON.stringify(row)}`);
+      console.log(`  Input rawAddress: '${row.rawAddress}'`);
+      console.log(`  Input bairro: '${row.bairro}'`);
+      console.log(`  Input cidade: '${row.cidade}'`);
+      console.log(`  Input estado: '${row.estado}'`);
+      console.log(`  Has original coords: ${hasOriginalCoords} (Lat: ${originalLatNum}, Lon: ${originalLonNum})`);
 
       // --- Prioritize "quadra e lote" detection ---
       if (row.rawAddress && isQuadraLote(row.rawAddress)) {
         status = "pending";
-        finalDisplayName = row.rawAddress;
+        finalCorrectedAddress = row.rawAddress; // Use rawAddress for quadra e lote
         note = (note ? note + ";" : "") + "quadra-lote-manual-review";
         console.log(`  Detected as 'quadra e lote'. Status: ${status}`);
         // Skip further geocoding for these, they need manual adjustment
@@ -205,6 +210,7 @@ serve(async (req)=>{
 
         // Decision logic (after potential LocationIQ search)
         if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
+          fullGeocodedAddress = locationIqDisplayName; // Store the verbose name here
           // LocationIQ found a good match
           if (hasOriginalCoords) {
             console.log(`  Has original coords: ${originalLatNum}, ${originalLonNum}`);
@@ -214,7 +220,7 @@ serve(async (req)=>{
               // Significant difference, use geocoded
               finalLat = locationIqLat.toFixed(6);
               finalLon = locationIqLon.toFixed(6);
-              finalDisplayName = locationIqDisplayName;
+              finalCorrectedAddress = row.rawAddress || locationIqDisplayName; // Prefer rawAddress
               status = "corrected-by-geocode";
               note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
               console.log(`  Distance > threshold. Using geocoded. Status: ${status}`);
@@ -222,7 +228,7 @@ serve(async (req)=>{
               // Small difference, stick with original spreadsheet coords
               finalLat = originalLatNum!.toFixed(6);
               finalLon = originalLonNum!.toFixed(6);
-              finalDisplayName = row.rawAddress;
+              finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
               status = "valid";
               note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
               console.log(`  Distance <= threshold. Using original. Status: ${status}`);
@@ -231,7 +237,7 @@ serve(async (req)=>{
             // No original coords, use geocoded
             finalLat = locationIqLat.toFixed(6);
             finalLon = locationIqLon.toFixed(6);
-            finalDisplayName = locationIqDisplayName;
+            finalCorrectedAddress = row.rawAddress || locationIqDisplayName; // Prefer rawAddress
             status = "valid";
             note = (note ? note + ";" : "") + "geocodificado-locationiq";
             console.log(`  No original coords. Using geocoded. Status: ${status}`);
@@ -240,14 +246,14 @@ serve(async (req)=>{
           // LocationIQ failed or mismatched, but we have valid original coords
           finalLat = originalLatNum!.toFixed(6);
           finalLon = originalLonNum!.toFixed(6);
-          finalDisplayName = row.rawAddress;
+          finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
           status = "valid";
           note = (note ? note + ";" : "") + "coordenadas-da-planilha";
           console.log(`  LocationIQ failed, but has original coords. Using original. Status: ${status}`);
         } else {
           // No valid coords from any source (this is the default 'pending' case)
           status = "pending";
-          finalDisplayName = row.rawAddress; // Keep original address if no coords
+          finalCorrectedAddress = row.rawAddress; // Keep original rawAddress if no coords
           note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
           console.log(`  No valid coords from any source. Status: ${status}`);
         }
@@ -256,15 +262,15 @@ serve(async (req)=>{
       results.push({
         ...row,
         originalAddress: row.rawAddress || "",
-        correctedAddress: finalDisplayName || row.rawAddress, // Ensure correctedAddress is always set
+        correctedAddress: finalCorrectedAddress || row.rawAddress, // Ensure correctedAddress is always set
         latitude: finalLat,
         longitude: finalLon,
         status,
         searchUsed,
         note,
-        display_name: finalDisplayName
+        display_name: fullGeocodedAddress // Use the new field for the verbose name
       });
-      console.log(`--- Final Status for ${row.rawAddress}: ${status} ---`);
+      console.log(`--- Final Status for '${row.rawAddress}': ${status}, Corrected Address: '${finalCorrectedAddress}' ---`);
     }
     return new Response(JSON.stringify(results), {
       headers: {
