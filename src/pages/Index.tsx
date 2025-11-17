@@ -13,6 +13,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { getUserRole, insertDownload, getUserCredits, deductCredit } from "@/lib/supabase-helpers";
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
+import { normalizeCoordinate } from "@/lib/coordinate-helpers"; // Import new helper
 
 const Index = () => {
   const navigate = useNavigate();
@@ -164,9 +165,9 @@ const Index = () => {
           bairro: String(row.bairro || '').trim(),
           cidade: String(row.cidade || '').trim(),
           estado: String(row.estado || '').trim(),
-          // Pass original latitude and longitude if they exist in the spreadsheet
-          latitude: latColumn && row[latColumn] ? String(row[latColumn]).trim() : undefined,
-          longitude: lonColumn && row[lonColumn] ? String(row[lonColumn]).trim() : undefined,
+          // Pass original latitude and longitude if they exist in the spreadsheet, normalized
+          latitude: latColumn ? normalizeCoordinate(row[latColumn])?.toFixed(6) : undefined,
+          longitude: lonColumn ? normalizeCoordinate(row[lonColumn])?.toFixed(6) : undefined,
         }));
 
         setStatus(`Processando lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(totalAddresses / BATCH_SIZE)} (${i + 1}-${Math.min(i + BATCH_SIZE, totalAddresses)})...`);
