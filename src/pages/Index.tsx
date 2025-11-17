@@ -13,7 +13,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { getUserRole, processDownloadRpc, getUserCredits } from "@/lib/supabase-helpers"; // Updated import
 import { batchGeocodeAddresses, ProcessedAddress } from "@/lib/nominatim-service"; // Import new service
-import { normalizeCoordinate, extractAddressComplement } from "@/lib/coordinate-helpers"; // Import new helper
+import { normalizeCoordinate, extractAddressComplement, extractNormalizedStreetAndNumber } from "@/lib/coordinate-helpers"; // Import new helper
 import { buildLearningKey, loadLearnedLocation } from "@/lib/location-learning"; // Import new learning helpers
 import { isValidCoordinate } from "@/lib/validate-coordinates"; // Import new validation helper
 
@@ -254,14 +254,13 @@ const Index = () => {
       setStatus("Agrupando por endereço e complemento..."); // Updated status
       // --- END Geocoding ---
 
-      // NEW: Group by corrected address AND complement
+      // NEW: Group by normalized street and number
       const grouped: {
         [key: string]: ProcessedAddress[];
       } = {};
       allGeocodedData.forEach((row: ProcessedAddress) => {
         const addressToGroup = row.correctedAddress || row.originalAddress;
-        const complementToGroup = row.complement || ''; // Use empty string if no complement
-        const groupKey = `${addressToGroup}::${complementToGroup}`; // Combine address and complement for key
+        const groupKey = extractNormalizedStreetAndNumber(addressToGroup); // Use normalized street and number for grouping
 
         if (!grouped[groupKey]) {
           grouped[groupKey] = [];
@@ -274,7 +273,8 @@ const Index = () => {
         // Take the first record as base, but ensure corrected address and coords are used
         const firstRow = {
           ...rows[0],
-          correctedAddress: rows[0].correctedAddress || rows[0].originalAddress, // The address used for grouping
+          // The correctedAddress should reflect the primary address for the group
+          correctedAddress: rows[0].correctedAddress || rows[0].originalAddress, 
           latitude: rows[0].latitude, // Use the first row's coordinates for the group
           longitude: rows[0].longitude,
           complement: rows[0].complement, // Ensure complement is kept
@@ -290,7 +290,7 @@ const Index = () => {
       });
       
       console.log("Total de linhas originais:", jsonData.length);
-      console.log("Total de endereços únicos (agrupados por endereço e complemento):", results.length); // Updated log
+      console.log("Total de endereços únicos (agrupados por rua e número normalizados):", results.length); // Updated log
       setProgress(90);
       setStatus("Finalizando...");
       // await new Promise(resolve => setTimeout(resolve, 500)); // REMOVED THIS TIMEOUT

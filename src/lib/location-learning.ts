@@ -1,4 +1,5 @@
 import { ProcessedAddress } from "@/lib/nominatim-service";
+import { extractNormalizedStreetAndNumber } from "@/lib/coordinate-helpers"; // Import new helper
 
 /**
  * Constrói uma chave única para o aprendizado de localização baseada nos campos do endereço.
@@ -7,18 +8,20 @@ import { ProcessedAddress } from "@/lib/nominatim-service";
  * @returns Uma string única para a chave de aprendizado.
  */
 export function buildLearningKey(row: ProcessedAddress): string {
-  const street = (row.correctedAddress || row.originalAddress || "").trim();
-  const bairro = (row.bairro || "").trim(); // Assumindo que 'bairro' pode vir da planilha original
-  const cidade = (row.cidade || "").trim(); // Assumindo que 'cidade' pode vir da planilha original
-  const estado = (row.estado || "").trim(); // Assumindo que 'estado' pode vir da planilha original
-  const complement = (row.complement || "").trim(); // NEW: Include complement
-  // Adicione outros campos relevantes da sua planilha para tornar a chave mais específica, se necessário.
-  // Ex: const zip = row.Zipcode || "";
+  const fullAddress = (row.correctedAddress || row.originalAddress || "").trim();
+  const normalizedStreetAndNumber = extractNormalizedStreetAndNumber(fullAddress);
+  
+  // Use the normalized street and number as the primary part of the key
+  // You can still include other relevant fields if they add unique context
+  const bairro = (row.bairro || "").trim();
+  const cidade = (row.cidade || "").trim();
+  const estado = (row.estado || "").trim();
+  const complement = (row.complement || "").trim();
 
-  // Normaliza a chave para evitar problemas com espaços e caracteres especiais
-  return `${street}_${bairro}_${cidade}_${estado}_${complement}` // NEW: Include complement in key
+  // Combine normalized street/number with other relevant fields
+  return `${normalizedStreetAndNumber}_${bairro}_${cidade}_${estado}_${complement}`
     .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9_]/g, "") // Remove caracteres não alfanuméricos, exceto underscore
+    .replace(/[^a-zA-Z0-9_]/g, "")
     .toLowerCase();
 }
 
