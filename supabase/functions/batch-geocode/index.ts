@@ -141,8 +141,8 @@ serve(async (req)=>{
 
       let finalLat: string | undefined = undefined;
       let finalLon: string | undefined = undefined;
-      let finalCorrectedAddress: string | undefined = undefined; // Renamed for clarity
-      let fullGeocodedAddress: string | undefined = undefined; // New field for verbose display_name
+      let finalCorrectedAddress: string | undefined = undefined; 
+      let fullGeocodedAddress: string | undefined = undefined; // Stores verbose display_name from LocationIQ
 
       const originalLatNum = parseCoordinate(row.latitude);
       const originalLonNum = parseCoordinate(row.longitude);
@@ -217,13 +217,13 @@ serve(async (req)=>{
             const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
             console.log(`  Distance between original and geocoded: ${distance.toFixed(2)} meters`);
             if (distance > DISTANCE_THRESHOLD_METERS) {
-              // Significant difference, use geocoded
-              finalLat = locationIqLat.toFixed(6);
-              finalLon = locationIqLon.toFixed(6);
-              finalCorrectedAddress = row.rawAddress || locationIqDisplayName; // Prefer rawAddress
-              status = "corrected-by-geocode";
-              note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
-              console.log(`  Distance > threshold. Using geocoded. Status: ${status}`);
+              // Significant difference, mark as pending for manual review
+              finalLat = originalLatNum!.toFixed(6); // Keep original for context in map editor
+              finalLon = originalLonNum!.toFixed(6); // Keep original for context in map editor
+              finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
+              status = "pending"; // Changed to pending
+              note = (note ? note + ";" : "") + "coordenadas-geocodificadas-diferem-muito-da-planilha-revisao-manual";
+              console.log(`  Distance > threshold. Marking as PENDING. Status: ${status}`);
             } else {
               // Small difference, stick with original spreadsheet coords
               finalLat = originalLatNum!.toFixed(6);
@@ -248,7 +248,7 @@ serve(async (req)=>{
           finalLon = originalLonNum!.toFixed(6);
           finalCorrectedAddress = row.rawAddress; // Prefer rawAddress
           status = "valid";
-          note = (note ? note + ";" : "") + "coordenadas-da-planilha";
+          note = (note ? note + ";" : "") + "coordenadas-da-planilha-usadas-geocodificacao-falhou";
           console.log(`  LocationIQ failed, but has original coords. Using original. Status: ${status}`);
         } else {
           // No valid coords from any source (this is the default 'pending' case)
