@@ -160,7 +160,7 @@ export default function LocationAdjustments() {
                       {translateColumnName(col)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-xs sm:text-sm text-right">Ações</TableHead>
+                  <TableHead className="text-xs sm:text-sm text-right">Ajustar no mapa</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
