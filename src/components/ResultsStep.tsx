@@ -1,24 +1,24 @@
-import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff, Map } from "lucide-react"; // Adicionado Map
+import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ProcessedAddress } from "@/lib/nominatim-service"; // Import new interface
+import { ProcessedAddress } from "@/lib/nominatim-service";
 import { useNavigate } from "react-router-dom";
 
 interface ResultsStepProps {
-  data: ProcessedAddress[]; // Use new interface
+  data: ProcessedAddress[];
   onExport: (format: 'xlsx' | 'csv') => void;
   onReset: () => void;
   totalSequences: number;
-  onAdjustLocations: () => void; // Nova prop
+  onAdjustLocations: () => void;
 }
 const ResultsStep = ({
   data,
   onExport,
   onReset,
   totalSequences,
-  onAdjustLocations // Nova prop
+  onAdjustLocations
 }: ResultsStepProps) => {
   const navigate = useNavigate();
   const totalStops = data.length;
@@ -47,20 +47,20 @@ const ResultsStep = ({
 
   // Define the order of columns to display
   const orderedColumns = [
-    'originalAddress',
+    // Removido 'originalAddress' para dar mais espaço
     'correctedAddress',
     'latitude',
     'longitude',
     'status',
-    // Add other relevant columns dynamically if they exist in the data
+    // Adicione outras colunas relevantes dinamicamente se existirem nos dados
     ...allColumns.filter(col => !['originalAddress', 'correctedAddress', 'latitude', 'longitude', 'status'].includes(col))
   ];
 
-  // Filter and sort columns for display in the table
+  // Filtrar e ordenar colunas para exibição na tabela
   const columnsToShow = orderedColumns.filter(col => {
     const translated = translateColumnName(col);
-    // Only show relevant columns for the log/results
-    return ['Endereço Original', 'Endereço Corrigido', 'Latitude', 'Longitude', 'Status', 'Identificação do Pacote'].includes(translated);
+    // Apenas mostra colunas relevantes para o log/resultados, removendo 'Endereço Original'
+    return ['Endereço Corrigido', 'Latitude', 'Longitude', 'Status', 'Identificação do Pacote'].includes(translated);
   });
 
   return <div className="space-y-4 sm:space-y-6 animate-fade-in">
@@ -115,14 +115,14 @@ const ResultsStep = ({
           <Table>
             <TableHeader>
               <TableRow>
-                {columnsToShow.map((col, idx) => <TableHead key={idx} className="text-xs sm:text-sm whitespace-nowrap">
+                {columnsToShow.map((col, idx) => <TableHead key={idx} className="text-xs sm:text-sm">
                     {translateColumnName(col)}
                   </TableHead>)}
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.map((row, rowIndex) => <TableRow key={rowIndex} className={row.status === 'pending' ? 'bg-red-900/20 hover:bg-red-900/30' : ''}>
-                  {columnsToShow.map((col, colIndex) => <TableCell key={colIndex} className="text-xs sm:text-sm whitespace-nowrap">
+                  {columnsToShow.map((col, colIndex) => <TableCell key={colIndex} className="text-xs sm:text-sm">
                       {col === 'status' ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           row.status === 'valid' ? 'bg-green-500/20 text-green-400' :
