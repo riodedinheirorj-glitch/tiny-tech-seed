@@ -6,15 +6,18 @@ const corsHeaders = {
 const LOCATIONIQ_API_URL = "https://us1.locationiq.com/v1/search.php";
 const RATE_LIMIT_DELAY = 500; // 0.5 seconds to respect 2 requests per second limit
 const DEFAULT_COUNTRY_CODE = "Brazil"; // For LocationIQ, use full country name
+
 // Helpers
 function sleep(ms: number) {
   return new Promise((r)=>setTimeout(r, ms));
 }
+
 function normalizeText(s: string) {
   if (!s) return "";
   const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
 }
+
 function buildLocationIQQueryParam(row: any) {
   const parts = [];
   if (row.rawAddress) parts.push(row.rawAddress);
@@ -23,6 +26,7 @@ function buildLocationIQQueryParam(row: any) {
   if (row.estado) parts.push(row.estado);
   return parts.join(", ");
 }
+
 function addressMatchesExpected(locationiqAddress: any, expected: any) {
   if (!locationiqAddress) return false;
   const gotCity = locationiqAddress.city || locationiqAddress.town || locationiqAddress.village || "";
@@ -46,6 +50,7 @@ function addressMatchesExpected(locationiqAddress: any, expected: any) {
   }
   return cityMatches && stateMatches && bairroMatches;
 }
+
 async function locationiqSearch(query: string) {
   const LOCATIONIQ_API_KEY = Deno.env.get('LOCATIONIQ_API_KEY');
   if (!LOCATIONIQ_API_KEY) {
@@ -72,6 +77,15 @@ async function locationiqSearch(query: string) {
   const json = await resp.json();
   return json && json.length ? json[0] : null;
 }
+
+// NEW HELPER FUNCTION
+function parseCoordinate(coordString: string | undefined | null): number | undefined {
+  if (!coordString) return undefined;
+  const cleanedString = String(coordString).replace(',', '.').trim(); // Replace comma with dot for float parsing
+  const parsed = parseFloat(cleanedString);
+  return isNaN(parsed) ? undefined : parsed;
+}
+
 serve(async (req)=>{
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -97,12 +111,12 @@ serve(async (req)=>{
       let finalDisplayName: string | undefined = undefined;
 
       // 1. Prioritize original lat/lng from spreadsheet if available and valid
-      const originalLat = parseFloat(row.latitude || '');
-      const originalLon = parseFloat(row.longitude || '');
+      const originalLatNum = parseCoordinate(row.latitude);
+      const originalLonNum = parseCoordinate(row.longitude);
 
-      if (!isNaN(originalLat) && !isNaN(originalLon)) {
-        finalLat = row.latitude;
-        finalLon = row.longitude;
+      if (originalLatNum !== undefined && originalLonNum !== undefined) {
+        finalLat = originalLatNum.toFixed(6); // Store as string with fixed precision
+        finalLon = originalLonNum.toFixed(6); // Store as string with fixed precision
         finalDisplayName = row.rawAddress; // Use raw address as display name if using original coords
         status = "valid"; // Assume valid if coordinates are provided
         note = "coordenadas-da-planilha";
