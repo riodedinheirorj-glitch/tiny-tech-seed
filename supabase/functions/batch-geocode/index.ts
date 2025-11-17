@@ -238,13 +238,13 @@ serve(async (req)=>{
               note = (note ? note + ";" : "") + "coordenadas-geocodificadas-diferem-muito-da-planilha-revisao-manual";
               console.log(`  Distance > threshold. Marking as PENDING. Status: ${status}`);
             } else {
-              // Small difference, use geocoded display name for grouping, but original coords
+              // Small difference, use original rawAddress for grouping, but original coords
               finalLat = originalLatNum!.toFixed(6);
               finalLon = originalLonNum!.toFixed(6);
-              finalCorrectedAddress = locationIqDisplayName; // Use standardized name for grouping
+              finalCorrectedAddress = row.rawAddress; // Use rawAddress to preserve number for grouping
               status = "valid";
               note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
-              console.log(`  Distance <= threshold. Using original coords, geocoded name. Status: ${status}`);
+              console.log(`  Distance <= threshold. Using original coords, rawAddress for grouping. Status: ${status}`);
             }
           } else {
             // No original coords, use geocoded display name and coords
