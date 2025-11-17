@@ -113,25 +113,31 @@ export default function AddressMapEditor({
           className="w-full h-[400px] rounded-lg overflow-hidden border border-primary/30 shadow-inner"
         />
 
-        <div className="flex justify-between gap-3 mt-4">
+        <div className="flex flex-col sm:flex-row gap-3 mt-4"> {/* Alterado para flex-col no mobile */}
           <Button
             variant="outline"
             onClick={handleLocateMe}
             disabled={isLocating}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto" {/* Adicionado w-full para mobile */}
           >
             {isLocating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Localizando...
+              </>
             ) : (
-              <Locate className="h-4 w-4" />
+              <>
+                <Locate className="h-4 w-4" />
+                Minha Localização
+              </>
             )}
-            Minha Localização
           </Button>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto"> {/* Agrupamento para Cancelar e Salvar */}
             <Button
               variant="outline"
               onClick={onClose}
               disabled={isLocating}
+              className="w-full sm:w-auto" {/* Adicionado w-full para mobile */}
             >
               Cancelar
             </Button>
@@ -139,6 +145,7 @@ export default function AddressMapEditor({
             <Button
               onClick={handleSave}
               disabled={isLocating}
+              className="w-full sm:w-auto" {/* Adicionado w-full para mobile */}
             >
               Salvar Localização
             </Button>
