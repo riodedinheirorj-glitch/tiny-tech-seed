@@ -6,6 +6,7 @@ const corsHeaders = {
 const LOCATIONIQ_API_URL = "https://us1.locationiq.com/v1/search.php";
 const RATE_LIMIT_DELAY = 500; // 0.5 seconds to respect 2 requests per second limit
 const DEFAULT_COUNTRY_CODE = "Brazil"; // For LocationIQ, use full country name
+const DISTANCE_THRESHOLD_METERS = 50; // If coordinates differ by more than 50 meters, use geocoded.
 
 // Helpers
 function sleep(ms: number) {
@@ -85,6 +86,23 @@ function parseCoordinate(coordString: string | undefined | null): number | undef
   return isNaN(parsed) ? undefined : parsed;
 }
 
+// Helper for approximate distance calculation (meters) using Haversine formula
+function getApproximateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI/180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  const d = R * c; // in metres
+  return d;
+}
+
 serve(async (req)=>{
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -108,20 +126,18 @@ serve(async (req)=>{
       let finalLon: string | undefined = undefined;
       let finalDisplayName: string | undefined = undefined;
 
-      // 1. Prioritize original lat/lng from spreadsheet if available and valid
       const originalLatNum = parseCoordinate(row.latitude);
       const originalLonNum = parseCoordinate(row.longitude);
+      const hasOriginalCoords = originalLatNum !== undefined && originalLonNum !== undefined;
 
-      if (originalLatNum !== undefined && originalLonNum !== undefined) {
-        finalLat = originalLatNum.toFixed(6);
-        finalLon = originalLonNum.toFixed(6);
-        finalDisplayName = row.rawAddress; // Use raw address as display name if using original coords
-        status = "valid";
-        note = "coordenadas-da-planilha";
-      } else {
-        // Only proceed with LocationIQ search if no valid coordinates were found in the spreadsheet
+      let locationIqLat: number | undefined = undefined;
+      let locationIqLon: number | undefined = undefined;
+      let locationIqDisplayName: string | undefined = undefined;
+      let locationIqMatch = false;
+
+      // Always attempt LocationIQ search if there's a raw address
+      if (row.rawAddress) {
         const fullQuery = buildLocationIQQueryParam(row);
-        
         try {
           searchUsed = "locationiq:" + fullQuery;
           const locationIqResult = await locationiqSearch(fullQuery);
@@ -136,27 +152,62 @@ serve(async (req)=>{
             });
 
             if (matches) {
-              finalLat = locationIqResult.lat;
-              finalLon = locationIqResult.lon;
-              finalDisplayName = locationIqResult.display_name;
-              status = "valid";
-              note = "geocodificado-locationiq";
+              locationIqLat = parseCoordinate(locationIqResult.lat);
+              locationIqLon = parseCoordinate(locationIqResult.lon);
+              locationIqDisplayName = locationIqResult.display_name;
+              locationIqMatch = true;
             } else {
-              status = "mismatch";
-              note = "resultado-locationiq-nao-coincide-com-cidade-bairro";
-              finalDisplayName = row.rawAddress; // Keep original address if mismatch
+              note = (note ? note + ";" : "") + "resultado-locationiq-nao-coincide-com-cidade-bairro";
             }
           } else {
-            status = "pending";
-            note = "nao-encontrado-locationiq";
-            finalDisplayName = row.rawAddress; // Keep original address if not found
+            note = (note ? note + ";" : "") + "nao-encontrado-locationiq";
           }
         } catch (e) {
           note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
           console.warn(e);
-          status = "pending"; // If LocationIQ failed, it's still pending
-          finalDisplayName = row.rawAddress; // Keep original address if error
         }
+      }
+
+      // Decision logic
+      if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
+        // LocationIQ found a good match
+        if (hasOriginalCoords) {
+          const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
+          if (distance > DISTANCE_THRESHOLD_METERS) {
+            // Significant difference, use geocoded
+            finalLat = locationIqLat.toFixed(6);
+            finalLon = locationIqLon.toFixed(6);
+            finalDisplayName = locationIqDisplayName;
+            status = "corrected-by-geocode";
+            note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
+          } else {
+            // Small difference, stick with original spreadsheet coords
+            finalLat = originalLatNum!.toFixed(6);
+            finalLon = originalLonNum!.toFixed(6);
+            finalDisplayName = row.rawAddress;
+            status = "valid";
+            note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
+          }
+        } else {
+          // No original coords, use geocoded
+          finalLat = locationIqLat.toFixed(6);
+          finalLon = locationIqLon.toFixed(6);
+          finalDisplayName = locationIqDisplayName;
+          status = "valid";
+          note = (note ? note + ";" : "") + "geocodificado-locationiq";
+        }
+      } else if (hasOriginalCoords) {
+        // LocationIQ failed or mismatched, but we have valid original coords
+        finalLat = originalLatNum!.toFixed(6);
+        finalLon = originalLonNum!.toFixed(6);
+        finalDisplayName = row.rawAddress;
+        status = "valid";
+        note = (note ? note + ";" : "") + "coordenadas-da-planilha";
+      } else {
+        // No valid coords from any source
+        status = "pending";
+        finalDisplayName = row.rawAddress; // Keep original address if no coords
+        note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
       }
       
       results.push({
