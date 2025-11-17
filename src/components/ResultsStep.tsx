@@ -1,4 +1,4 @@
-import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff } from "lucide-react";
+import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff, Map } from "lucide-react"; // Adicionado Map
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,12 +11,14 @@ interface ResultsStepProps {
   onExport: (format: 'xlsx' | 'csv') => void;
   onReset: () => void;
   totalSequences: number;
+  onAdjustLocations: () => void; // Nova prop
 }
 const ResultsStep = ({
   data,
   onExport,
   onReset,
-  totalSequences
+  totalSequences,
+  onAdjustLocations // Nova prop
 }: ResultsStepProps) => {
   const navigate = useNavigate();
   const totalStops = data.length;
@@ -70,7 +72,7 @@ const ResultsStep = ({
           </div>
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">Processamento Concluído!</h2>
-        <p className="text-sm sm:text-base text-muted-foreground">Endereços Corrigidos e Pacotes Agrupados por endereço </p>
+        <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-4">Endereços Corrigidos e Pacotes Agrupados por endereço </p>
       </div>
 
       {/* Stats Cards */}
@@ -144,6 +146,14 @@ const ResultsStep = ({
         <div className="flex flex-col-reverse sm:flex-row gap-2 w-full justify-end mt-6">
           <Button variant="outline" onClick={onReset} className="w-full sm:w-auto text-sm" size="sm">
             Carregar Novo Romaneio
+          </Button>
+          <Button 
+            onClick={onAdjustLocations} 
+            className="bg-gradient-to-r from-secondary to-accent hover:from-secondary/90 hover:to-accent/90 w-full sm:w-auto text-sm" 
+            size="sm"
+          >
+            <Map className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            Ajustar Endereços
           </Button>
           <Button onClick={() => onExport('xlsx')} className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary w-full sm:w-auto text-sm" size="sm">
             <Download className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />

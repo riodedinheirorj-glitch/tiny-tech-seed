@@ -341,6 +341,11 @@ const Index = () => {
     }
     toast.success(`Arquivo exportado! Seu arquivo ${format.toUpperCase()} foi baixado com sucesso. Créditos restantes: ${credits - 1}`);
   };
+
+  const handleAdjustLocations = () => {
+    navigate("/adjust-locations", { state: { initialProcessedData: processedData } });
+  };
+
   return <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -418,7 +423,7 @@ const Index = () => {
           
           {currentStep === 2 && <ProcessingStep progress={progress} status={status} isComplete={!isProcessing && progress === 100} />}
           
-          {currentStep === 3 && <ResultsStep data={processedData} onExport={handleExport} onReset={handleReset} totalSequences={totalSequencesCount} />}
+          {currentStep === 3 && <ResultsStep data={processedData} onExport={handleExport} onReset={handleReset} totalSequences={totalSequencesCount} onAdjustLocations={handleAdjustLocations} />}
         </div>
       </div>
 
