@@ -16,6 +16,7 @@ function sleep(ms: number) {
 function normalizeText(s: string) {
   if (!s) return "";
   const withNoAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Keep numbers, alphanumeric, whitespace, hyphens, and commas
   return withNoAccents.toLowerCase().replace(/(av|av\.|avenida)\b/g, "avenida").replace(/\b(r|r\.)\b/g, "rua").replace(/(rod|rod\.|rodovia)\b/g, "rodovia").replace(/\b(proximo a|proximo|próximo a|perto de|em frente ao|ao lado de)\b/g, "").replace(/[^\w\s\-\,]/g, "").replace(/\s+/g, " ").trim();
 }
 
@@ -44,21 +45,25 @@ function addressMatchesExpected(locationiqAddress: any, expected: any) {
   const gotCounty = locationiqAddress.county || "";
   const gotSuburb = locationiqAddress.suburb || locationiqAddress.neighbourhood || "";
   const gotState = locationiqAddress.state || "";
+
   const expCity = normalizeText(expected.cidade || "");
   const expBairro = normalizeText(expected.bairro || "");
   const expState = normalizeText(expected.estado || "");
+
   const gCity = normalizeText(gotCity || gotCounty);
   const gBairro = normalizeText(gotSuburb || "");
   const gState = normalizeText(gotState || "");
-  const cityMatches = expCity && gCity && (gCity.includes(expCity) || expCity.includes(gCity));
-  const stateMatches = !expState || gState && (gState.includes(expState) || expState.includes(expState));
-  let bairroMatches = false;
-  if (!expBairro) bairroMatches = true;
-  else if (gBairro) {
-    bairroMatches = gBairro.includes(expBairro) || expBairro.includes(expBairro);
-  } else {
-    bairroMatches = false;
-  }
+
+  // Make matching flexible: if expected field is empty, consider it a match
+  const cityMatches = !expCity || (gCity && (gCity.includes(expCity) || expCity.includes(gCity)));
+  const stateMatches = !expState || (gState && (gState.includes(expState) || expState.includes(gState)));
+  const bairroMatches = !expBairro || (gBairro && (gBairro.includes(expBairro) || expBairro.includes(gBairro)));
+  
+  console.log(`  Matching details:`);
+  console.log(`    Expected City: '${expCity}', Got City: '${gCity}', Match: ${cityMatches}`);
+  console.log(`    Expected Bairro: '${expBairro}', Got Bairro: '${gBairro}', Match: ${bairroMatches}`);
+  console.log(`    Expected State: '${expState}', Got State: '${gState}', Match: ${stateMatches}`);
+
   return cityMatches && stateMatches && bairroMatches;
 }
 
@@ -145,16 +150,20 @@ serve(async (req)=>{
       let locationIqDisplayName: string | undefined = undefined;
       let locationIqMatch = false;
 
-      // --- NEW LOGIC: Prioritize "quadra e lote" detection ---
+      console.log(`--- Processing address ${i + 1}: ${row.rawAddress} ---`);
+
+      // --- Prioritize "quadra e lote" detection ---
       if (row.rawAddress && isQuadraLote(row.rawAddress)) {
         status = "pending";
         finalDisplayName = row.rawAddress;
         note = (note ? note + ";" : "") + "quadra-lote-manual-review";
+        console.log(`  Detected as 'quadra e lote'. Status: ${status}`);
         // Skip further geocoding for these, they need manual adjustment
       } else {
         // Existing logic for geocoding
         if (row.rawAddress) {
           const fullQuery = buildLocationIQQueryParam(row);
+          console.log(`  Full query for LocationIQ: '${fullQuery}'`);
           try {
             searchUsed = "locationiq:" + fullQuery;
             const locationIqResult = await locationiqSearch(fullQuery);
@@ -162,6 +171,9 @@ serve(async (req)=>{
 
             if (locationIqResult) {
               const addr = locationIqResult.address || {};
+              console.log(`  LocationIQ Result: Lat=${locationIqResult.lat}, Lon=${locationIqResult.lon}, DisplayName='${locationIqResult.display_name}'`);
+              console.log(`  LocationIQ Address Details: ${JSON.stringify(addr)}`);
+
               const matches = addressMatchesExpected(addr, {
                 bairro: row.bairro,
                 cidade: row.cidade,
@@ -173,15 +185,18 @@ serve(async (req)=>{
                 locationIqLon = parseCoordinate(locationIqResult.lon);
                 locationIqDisplayName = locationIqResult.display_name;
                 locationIqMatch = true;
+                console.log(`  LocationIQ matched expected criteria.`);
               } else {
                 note = (note ? note + ";" : "") + "resultado-locationiq-nao-coincide-com-cidade-bairro";
+                console.log(`  LocationIQ did NOT match expected criteria. Note: ${note}`);
               }
             } else {
               note = (note ? note + ";" : "") + "nao-encontrado-locationiq";
+              console.log(`  LocationIQ found no results. Note: ${note}`);
             }
           } catch (e) {
             note = (note ? note + ";" : "") + "erro-na-requisicao-locationiq";
-            console.warn(e);
+            console.warn(`  Error during LocationIQ request: ${e}`);
           }
         }
 
@@ -189,7 +204,9 @@ serve(async (req)=>{
         if (locationIqMatch && locationIqLat !== undefined && locationIqLon !== undefined) {
           // LocationIQ found a good match
           if (hasOriginalCoords) {
+            console.log(`  Has original coords: ${originalLatNum}, ${originalLonNum}`);
             const distance = getApproximateDistance(originalLatNum!, originalLonNum!, locationIqLat, locationIqLon);
+            console.log(`  Distance between original and geocoded: ${distance.toFixed(2)} meters`);
             if (distance > DISTANCE_THRESHOLD_METERS) {
               // Significant difference, use geocoded
               finalLat = locationIqLat.toFixed(6);
@@ -197,6 +214,7 @@ serve(async (req)=>{
               finalDisplayName = locationIqDisplayName;
               status = "corrected-by-geocode";
               note = (note ? note + ";" : "") + "coordenadas-corrigidas-por-geocodificacao";
+              console.log(`  Distance > threshold. Using geocoded. Status: ${status}`);
             } else {
               // Small difference, stick with original spreadsheet coords
               finalLat = originalLatNum!.toFixed(6);
@@ -204,6 +222,7 @@ serve(async (req)=>{
               finalDisplayName = row.rawAddress;
               status = "valid";
               note = (note ? note + ";" : "") + "coordenadas-da-planilha-confirmadas-por-geocodificacao";
+              console.log(`  Distance <= threshold. Using original. Status: ${status}`);
             }
           } else {
             // No original coords, use geocoded
@@ -212,6 +231,7 @@ serve(async (req)=>{
             finalDisplayName = locationIqDisplayName;
             status = "valid";
             note = (note ? note + ";" : "") + "geocodificado-locationiq";
+            console.log(`  No original coords. Using geocoded. Status: ${status}`);
           }
         } else if (hasOriginalCoords) {
           // LocationIQ failed or mismatched, but we have valid original coords
@@ -220,11 +240,13 @@ serve(async (req)=>{
           finalDisplayName = row.rawAddress;
           status = "valid";
           note = (note ? note + ";" : "") + "coordenadas-da-planilha";
+          console.log(`  LocationIQ failed, but has original coords. Using original. Status: ${status}`);
         } else {
           // No valid coords from any source (this is the default 'pending' case)
           status = "pending";
           finalDisplayName = row.rawAddress; // Keep original address if no coords
           note = (note ? note + ";" : "") + "nao-foi-possivel-obter-coordenadas";
+          console.log(`  No valid coords from any source. Status: ${status}`);
         }
       }
       
@@ -239,6 +261,7 @@ serve(async (req)=>{
         note,
         display_name: finalDisplayName
       });
+      console.log(`--- Final Status for ${row.rawAddress}: ${status} ---`);
     }
     return new Response(JSON.stringify(results), {
       headers: {
