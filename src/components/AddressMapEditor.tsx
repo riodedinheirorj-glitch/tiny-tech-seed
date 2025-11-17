@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import "maplibregl/dist/maplibre-gl.css";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,36 +43,33 @@ export default function AddressMapEditor({
       return;
     }
 
-    // Usar um timeout para garantir que o dialog esteja totalmente renderizado e visível
-    // antes de inicializar ou redimensionar o mapa.
     const timer = setTimeout(() => {
       if (!mapContainer.current) return;
 
       if (mapRef.current) {
-        // O mapa já existe, apenas atualize o centro e o marcador, depois redimensione
         mapRef.current.setCenter([initialLng, initialLat]);
         markerRef.current?.setLngLat([initialLng, initialLat]);
         mapRef.current.resize();
       } else {
-        // Inicializar o mapa
         mapRef.current = new maplibregl.Map({
           container: mapContainer.current,
-          style: "https://demotiles.maplibre.org/style.json",
+          // Alterado para um estilo de mapa mais detalhado (MapTiler Streets)
+          // Você precisará de uma chave de API MapTiler.com gratuita para uso em produção.
+          // Substitua 'YOUR_MAPTILER_API_KEY' pela sua chave real.
+          style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${import.meta.env.VITE_MAPTILER_API_KEY || 'YOUR_MAPTILER_API_KEY'}`,
           center: [initialLng, initialLat],
           zoom: 15,
         });
 
-        // Adicionar marcador arrastável
         markerRef.current = new maplibregl.Marker({ draggable: true })
           .setLngLat([initialLng, initialLat])
           .addTo(mapRef.current);
         
-        // Garantir que o mapa redimensione após o carregamento inicial, caso haja animações no dialog
         mapRef.current.on('load', () => {
           mapRef.current?.resize();
         });
       }
-    }, 100); // Pequeno atraso de 100ms
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [open, initialLat, initialLng]);
