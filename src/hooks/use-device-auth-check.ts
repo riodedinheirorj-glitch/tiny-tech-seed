@@ -19,7 +19,7 @@ export function useDeviceAuthCheck() {
       const currentPath = window.location.pathname;
 
       console.log(`useDeviceAuthCheck: Checking device status for user ${userId} on path ${currentPath}`);
-      console.log(`useDeviceAuthCheck: Local deviceId: ${deviceId}`);
+      console.log(`useDeviceAuthCheck: Local deviceId from localStorage: ${deviceId}`);
 
       if (!deviceId) {
         console.warn("useDeviceAuthCheck: No device_id found in localStorage for logged in user. Forcing logout.");

@@ -61,7 +61,7 @@ export default function Auth() {
   // Detectar recuperação de senha
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth event:", event, "Session:", session);
+      console.log("Auth.tsx: Auth event:", event, "Session:", session);
       if (event === "PASSWORD_RECOVERY") {
         setMode("update-password");
       }
@@ -70,7 +70,7 @@ export default function Auth() {
     // Processar sessão e verificar se há token de recuperação
     const checkRecoveryToken = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log("Session data on load:", session);
+      console.log("Auth.tsx: Session data on load:", session);
       
       if (session?.user) {
         // Se há sessão válida, mostra o formulário de atualização
@@ -147,6 +147,7 @@ export default function Auth() {
       }
       setCurrentDeviceId(deviceId); // Armazena o ID do dispositivo
 
+      console.log("Auth.tsx: handleLogin - Calling track-device-login with:", { userId, deviceId, userAgent: navigator.userAgent });
       const { data: deviceTrackData, error: deviceTrackError } = await supabase.functions.invoke('track-device-login', {
         body: {
           user_id: userId,
@@ -157,7 +158,8 @@ export default function Auth() {
 
       let shouldShowWarning = false;
       if (deviceTrackError) {
-        console.error("Error tracking device login:", deviceTrackError);
+        console.error("Auth.tsx: Error tracking device login:", deviceTrackError);
+        toast.error("Erro ao registrar dispositivo. Tente novamente.");
       } else if (deviceTrackData?.multipleDevicesDetected) {
         shouldShowWarning = true;
       }
@@ -172,9 +174,10 @@ export default function Auth() {
         setTargetRouteAfterLogin(destinationRoute);
         setShowDeviceWarning(true);
       } else {
+        // If no warning, navigate directly after a small delay
         setTimeout(() => {
           navigate(destinationRoute);
-        }, 0);
+        }, 100); // Small delay to allow device tracking to settle
       }
     } catch (error: any) {
       const errorMessage = error.message ? translateSupabaseError(error.message) : "Erro ao fazer login";
@@ -220,12 +223,12 @@ export default function Auth() {
         await addInitialCredits(newUserId, initialCreditsAmount);
         setWelcomeCredits(initialCreditsAmount);
 
-        // Also track the device for the new user
         let deviceId = localStorage.getItem('rotasmart_device_id');
         if (!deviceId) {
           deviceId = crypto.randomUUID();
           localStorage.setItem('rotasmart_device_id', deviceId);
         }
+        console.log("Auth.tsx: handleSignup - Calling track-device-login with:", { userId: newUserId, deviceId, userAgent: navigator.userAgent });
         await supabase.functions.invoke('track-device-login', {
           body: {
             user_id: newUserId,
@@ -323,11 +326,13 @@ export default function Auth() {
   const handleContinueWithCurrentDevice = async () => {
     if (!currentLoggedInUserId || !currentDeviceId) {
       toast.error("Erro: Informações do usuário ou dispositivo ausentes.");
+      console.error("Auth.tsx: handleContinueWithCurrentDevice - Missing currentLoggedInUserId or currentDeviceId.");
       return;
     }
 
     setLoading(true); // Mostra loading enquanto desloga outros dispositivos
     try {
+      console.log("Auth.tsx: handleContinueWithCurrentDevice - Calling logout-other-devices with:", { userId: currentLoggedInUserId, currentDeviceId });
       const { error } = await supabase.functions.invoke('logout-other-devices', {
         body: {
           user_id: currentLoggedInUserId,
@@ -336,13 +341,13 @@ export default function Auth() {
       });
 
       if (error) {
-        console.error("Error logging out other devices:", error);
+        console.error("Auth.tsx: Error logging out other devices:", error);
         toast.error("Erro ao deslogar outros dispositivos.");
       } else {
         toast.success("Outros dispositivos deslogados com sucesso!");
       }
     } catch (error: any) {
-      console.error("Unexpected error during logout-other-devices:", error);
+      console.error("Auth.tsx: Unexpected error during logout-other-devices:", error);
       toast.error("Erro inesperado ao deslogar outros dispositivos.");
     } finally {
       setLoading(false);
