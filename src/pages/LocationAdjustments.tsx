@@ -215,7 +215,7 @@ export default function LocationAdjustments() {
       {selectedAddressIndex !== null && currentAddress && (
         <AddressMapEditor
           initialLat={initialMapLat}
-          initialLng={initialMapMapLng}
+          initialLng={initialMapLng} {/* CORRIGIDO AQUI */}
           addressName={currentAddress.correctedAddress || currentAddress.originalAddress || "Endereço"}
           onSave={handleSaveLocation}
           onClose={handleCloseEditor}
