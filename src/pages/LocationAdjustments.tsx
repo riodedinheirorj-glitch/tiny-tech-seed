@@ -116,8 +116,8 @@ export default function LocationAdjustments() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center sm:justify-between mb-6 gap-4"> {/* Ajustado para mobile */}
+          <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2 w-full sm:w-auto" size="sm"> {/* Ajustado para mobile */}
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Button>
@@ -126,7 +126,8 @@ export default function LocationAdjustments() {
           </h1>
           <Button
             onClick={handleFinishAdjustments}
-            className="bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 flex items-center gap-2"
+            className="bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 flex items-center gap-2 w-full sm:w-auto" // Ajustado para mobile
+            size="sm" // Ajustado para mobile
           >
             <CheckCircle2 className="h-4 w-4" />
             Finalizar e Exportar
@@ -149,11 +150,11 @@ export default function LocationAdjustments() {
               <TableHeader>
                 <TableRow>
                   {columnsToShow.map((col, idx) => (
-                    <TableHead key={idx} className="text-xs sm:text-sm whitespace-nowrap">
+                    <TableHead key={idx} className="text-xs sm:text-sm"> {/* Removido whitespace-nowrap */}
                       {translateColumnName(col)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-xs sm:text-sm whitespace-nowrap text-right">Ações</TableHead>
+                  <TableHead className="text-xs sm:text-sm text-right">Ações</TableHead> {/* Removido whitespace-nowrap */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -162,7 +163,10 @@ export default function LocationAdjustments() {
                     {columnsToShow.map((col, colIndex) => (
                       <TableCell 
                         key={colIndex} 
-                        className={`text-xs sm:text-sm ${col === 'correctedAddress' ? 'max-w-[150px] truncate' : ''}`} // Adicionado max-w e truncate
+                        className={`text-xs sm:text-sm ${
+                          col === 'correctedAddress' ? 'max-w-[150px] truncate' : // Mantém max-w e truncate para endereço
+                          (col === 'latitude' || col === 'longitude' || col === 'status') ? 'w-[80px] sm:w-[100px]' : '' // Largura fixa para lat/lng/status
+                        }`} 
                       >
                         {col === 'status' ? (
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -180,7 +184,7 @@ export default function LocationAdjustments() {
                         )}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[60px] sm:w-[80px]"> {/* Largura fixa para ações */}
                       <Button
                         variant="outline"
                         size="sm"
