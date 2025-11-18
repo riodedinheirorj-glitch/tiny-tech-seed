@@ -307,6 +307,13 @@ const Index = () => {
             consolidatedLatitude = row.latitude;
             consolidatedLongitude = row.longitude;
           }
+          // Prioritize learned coordinates (status 'atualizado')
+          if (row.status === 'atualizado' && row.latitude && row.longitude) {
+            consolidatedLatitude = row.latitude;
+            consolidatedLongitude = row.longitude;
+            hasLearned = true; // Ensure this flag is set if 'atualizado' is found
+          }
+
 
           // Complement Consistency Check
           if (row.normalizedComplement && row.normalizedComplement !== "") {
@@ -323,6 +330,8 @@ const Index = () => {
         // Determine final status for the grouped entry
         if (hasPending) {
           consolidatedStatus = 'pending';
+        } else if (hasLearned) { // Prioritize 'atualizado' (learned) status
+          consolidatedStatus = 'atualizado';
         } else if (hasCorrected) {
           consolidatedStatus = 'corrected';
         } else {
@@ -406,8 +415,15 @@ const Index = () => {
       return;
     }
 
-    // Exporta com os mesmos campos originais
-    const exportData = processedData;
+    // Prepare data for export, ensuring latitude and longitude are always strings
+    const exportData = processedData.map(row => ({
+      ...row,
+      latitude: row.latitude || '', // Ensure latitude is a string, even if empty
+      longitude: row.longitude || '', // Ensure longitude is a string, even if empty
+    }));
+
+    console.log("Dados sendo exportados:", exportData); // Log para depuração
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Agrupados por Endereço");
