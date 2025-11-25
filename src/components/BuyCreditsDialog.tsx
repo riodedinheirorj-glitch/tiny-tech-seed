@@ -42,6 +42,16 @@ const formatPhoneNumber = (value: string) => {
   return value;
 };
 
+// Função para formatar o CPF
+const formatCpf = (value: string) => {
+  if (!value) return "";
+  value = value.replace(/\D/g, ""); // Remove tudo que não é dígito
+  value = value.replace(/(\d{3})(\d)/, "$1.$2"); // Adiciona o primeiro ponto
+  value = value.replace(/(\d{3})(\d)/, "$1.$2"); // Adiciona o segundo ponto
+  value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); // Adiciona o hífen
+  return value;
+};
+
 export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCreditsDialogProps) {
   const [step, setStep] = useState<'selectPackage' | 'enterDetails' | 'showQrCode' | 'paymentConfirmed'>('selectPackage');
   const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0] | null>(null);
@@ -273,8 +283,8 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
                 <Label htmlFor="cpf">CPF</Label>
                 <Input
                   id="cpf"
-                  value={pixDetails.cpf}
-                  onChange={(e) => setPixDetails(prev => ({ ...prev, cpf: e.target.value }))}
+                  value={formatCpf(pixDetails.cpf)} // Aplica a máscara aqui
+                  onChange={(e) => setPixDetails(prev => ({ ...prev, cpf: formatCpf(e.target.value) }))}
                   placeholder="000.000.000-00"
                 />
               </div>
