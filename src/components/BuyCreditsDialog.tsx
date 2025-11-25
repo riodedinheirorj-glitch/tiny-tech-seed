@@ -46,6 +46,8 @@ const formatPhoneNumber = (value: string) => {
 const formatCpf = (value: string) => {
   if (!value) return "";
   value = value.replace(/\D/g, ""); // Remove tudo que não é dígito
+  value = value.substring(0, 11); // Limita a 11 dígitos
+
   value = value.replace(/(\d{3})(\d)/, "$1.$2"); // Adiciona o primeiro ponto
   value = value.replace(/(\d{3})(\d)/, "$1.$2"); // Adiciona o segundo ponto
   value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); // Adiciona o hífen
@@ -386,14 +388,14 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-green-500">
+                <h3 className="2xl font-bold text-green-500">
                   Pagamento Confirmado!
                 </h3>
-                <p className="text-lg text-foreground">
+                <p className="lg text-foreground">
                   Seus créditos já estão disponíveis.
                 </p>
                 <div className="p-4 bg-primary/10 rounded-lg">
-                  <p className="text-xl font-bold text-primary">
+                  <p className="xl font-bold text-primary">
                     +{selectedPackage.credits} créditos
                   </p>
                 </div>
