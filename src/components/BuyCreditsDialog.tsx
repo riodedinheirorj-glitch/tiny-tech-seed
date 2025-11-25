@@ -33,6 +33,15 @@ const pixDetailsSchema = z.object({
 
 type PixDetails = z.infer<typeof pixDetailsSchema>;
 
+// Função para formatar o número de telefone
+const formatPhoneNumber = (value: string) => {
+  if (!value) return "";
+  value = value.replace(/\D/g, ""); // Remove tudo que não é dígito
+  value = value.replace(/^(\d{2})(\d)/g, "($1) $2"); // Adiciona parênteses e espaço
+  value = value.replace(/(\d)(\d{4})$/, "$1-$2"); // Adiciona hífen
+  return value;
+};
+
 export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCreditsDialogProps) {
   const [step, setStep] = useState<'selectPackage' | 'enterDetails' | 'showQrCode' | 'paymentConfirmed'>('selectPackage');
   const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0] | null>(null);
@@ -244,8 +253,8 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
                 <Label htmlFor="phone">Telefone (WhatsApp)</Label>
                 <Input
                   id="phone"
-                  value={pixDetails.phone}
-                  onChange={(e) => setPixDetails(prev => ({ ...prev, phone: e.target.value }))}
+                  value={formatPhoneNumber(pixDetails.phone)} // Aplica a máscara aqui
+                  onChange={(e) => setPixDetails(prev => ({ ...prev, phone: formatPhoneNumber(e.target.value) }))}
                   placeholder="(XX) XXXXX-XXXX"
                 />
               </div>
