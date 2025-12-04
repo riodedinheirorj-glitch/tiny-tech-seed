@@ -53,6 +53,75 @@ export type Database = {
         }
         Relationships: []
       }
+      deliveries: {
+        Row: {
+          bairro: string | null
+          cidade: string | null
+          confirmed_at: string | null
+          confirmed_latitude: number | null
+          confirmed_longitude: number | null
+          corrected_address: string | null
+          created_at: string | null
+          driver_notes: string | null
+          estado: string | null
+          geocoded_latitude: number | null
+          geocoded_longitude: number | null
+          id: string
+          lote: string | null
+          note: string | null
+          original_address: string
+          quadra: string | null
+          sequence: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bairro?: string | null
+          cidade?: string | null
+          confirmed_at?: string | null
+          confirmed_latitude?: number | null
+          confirmed_longitude?: number | null
+          corrected_address?: string | null
+          created_at?: string | null
+          driver_notes?: string | null
+          estado?: string | null
+          geocoded_latitude?: number | null
+          geocoded_longitude?: number | null
+          id?: string
+          lote?: string | null
+          note?: string | null
+          original_address: string
+          quadra?: string | null
+          sequence?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bairro?: string | null
+          cidade?: string | null
+          confirmed_at?: string | null
+          confirmed_latitude?: number | null
+          confirmed_longitude?: number | null
+          corrected_address?: string | null
+          created_at?: string | null
+          driver_notes?: string | null
+          estado?: string | null
+          geocoded_latitude?: number | null
+          geocoded_longitude?: number | null
+          id?: string
+          lote?: string | null
+          note?: string | null
+          original_address?: string
+          quadra?: string | null
+          sequence?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -125,73 +194,6 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
-        Row: {
-          id: string;
-          email: string;
-          full_name: string | null;
-          // credits: number; // Removido
-          created_at: string;
-          has_logged_in_before: boolean;
-          last_uploaded_file: string | null;
-          locationiq_api_key: string | null;
-        };
-        Insert: {
-          id: string;
-          email: string;
-          full_name?: string | null;
-          // credits?: number; // Removido
-          created_at?: string;
-          has_logged_in_before?: boolean;
-          last_uploaded_file?: string | null;
-          locationiq_api_key?: string | null;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          full_name?: string | null;
-          // credits?: number; // Removido
-          created_at?: string;
-          has_logged_in_before?: boolean;
-          last_uploaded_file?: string | null;
-          locationiq_api_key?: string | null;
-        };
-      };
-      user_devices: { // NEW TABLE
-        Row: {
-          id: string;
-          user_id: string;
-          device_id: string;
-          user_agent: string | null;
-          last_login_at: string | null;
-          created_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          device_id: string;
-          user_agent?: string | null;
-          last_login_at?: string | null;
-          created_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          device_id?: string;
-          user_agent?: string | null;
-          last_login_at?: string | null;
-          created_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_devices_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
     }
     Views: {
       [_ in never]: never
@@ -207,10 +209,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      process_download: {
-        Args: { p_file_name: string }
-        Returns: string
       }
     }
     Enums: {
