@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import LocationAdjustments from "./pages/LocationAdjustments";
+import Navigation from "./pages/Navigation";
+import GoogleRouteMap from "./components/GoogleRouteMap";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +41,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/adjust-locations" element={<LocationAdjustments />} />
+          <Route path="/navigation" element={<Navigation />} />
+          <Route path="/route-map" element={<GoogleRouteMap />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

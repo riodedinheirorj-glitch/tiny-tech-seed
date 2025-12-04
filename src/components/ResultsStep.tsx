@@ -1,4 +1,4 @@
-import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff, Map } from "lucide-react";
+import { Download, Eye, CheckCircle2, Package, MapPin, FileCheck, MapPinOff, Map, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -162,6 +162,14 @@ const ResultsStep = ({
           >
             <Map className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             Ajustar Endereços
+          </Button>
+          <Button 
+            onClick={() => navigate('/route-map')} 
+            className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 w-full sm:w-auto text-sm" 
+            size="sm"
+          >
+            <Navigation className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            Navegar com GPS
           </Button>
           <Button onClick={() => onExport('xlsx')} className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary w-full sm:w-auto text-sm" size="sm">
             <Download className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />

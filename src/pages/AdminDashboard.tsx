@@ -98,27 +98,13 @@ export default function AdminDashboard() {
 
       setTotalUsers(profiles?.length || 0);
 
-      // Fetch all downloads and create a map for counts
-      const { data: allDownloads, error: downloadsError } = await supabase
-        .from('downloads')
-        .select('user_id');
-
-      if (downloadsError) throw downloadsError;
-
-      const downloadCounts = new Map<string, number>();
-      allDownloads?.forEach(download => {
-        if (download.user_id) {
-          downloadCounts.set(download.user_id, (downloadCounts.get(download.user_id) || 0) + 1);
-        }
-      });
-
-      // Combine profiles with download counts
+      // Combine profiles with credits
       const stats = profiles?.map((profile: any) => ({
         id: profile.id,
         email: profile.email,
         full_name: profile.full_name,
         credits: profile.credits || 0,
-        download_count: downloadCounts.get(profile.id) || 0,
+        download_count: 0,
       })) || [];
 
       setUserStats(stats);
