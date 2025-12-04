@@ -52,13 +52,13 @@ export default function LocationAdjustments() {
     if (selectedAddressIndex !== null) {
       setAddresses((prevAddresses) => {
         const newAddresses = [...prevAddresses];
-        const updatedAddress = {
+        const updatedAddress: ProcessedAddress = {
           ...newAddresses[selectedAddressIndex],
-          latitude: coords.lat.toFixed(6), // Formatar para 6 casas decimais
-          longitude: coords.lng.toFixed(6), // Formatar para 6 casas decimais
-          status: 'atualizado', // Marcar como atualizado manualmente
+          latitude: coords.lat.toFixed(6),
+          longitude: coords.lng.toFixed(6),
+          status: 'atualizado' as const,
           note: 'Ajustado manualmente no mapa',
-          learned: true, // Marcar como aprendido
+          learned: true,
         };
         newAddresses[selectedAddressIndex] = updatedAddress;
 

@@ -135,12 +135,12 @@ export default function BuyCreditsDialog({ open, onOpenChange, userId }: BuyCred
       });
 
       // Criar pedido de compra de crédito no Supabase com o transactionId
-      const { data: purchaseData, error: purchaseError } = await supabase
+      const { data: purchaseData, error: purchaseError } = await (supabase as any)
         .from("credit_purchases")
         .insert({
           user_id: userId,
           credits: selectedPackage.credits,
-          amount: selectedPackage.price, /* Alterado de amount_brl para amount */
+          amount: selectedPackage.price,
           gateway_charge_id: pixResponse.transactionId
         })
         .select()
