@@ -50,13 +50,17 @@ export default function GoogleRouteMap() {
   const [optimizedOrder, setOptimizedOrder] = useState<number[] | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  const [mapReady, setMapReady] = useState(false);
+
   // Load Google Maps API key from edge function
   useEffect(() => {
     const loadApiKey = async () => {
       try {
+        console.log("Loading Google Maps API key...");
         const { data, error } = await supabase.functions.invoke('google-maps-key');
         if (error) throw error;
         if (data?.apiKey) {
+          console.log("API key loaded successfully");
           setApiKey(data.apiKey);
         } else {
           throw new Error("API key not found");
@@ -74,49 +78,58 @@ export default function GoogleRouteMap() {
   useEffect(() => {
     if (!apiKey) return;
 
-    let checkInterval: NodeJS.Timeout | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let checkInterval: ReturnType<typeof setInterval> | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
       if (checkInterval) clearInterval(checkInterval);
       if (timeoutId) clearTimeout(timeoutId);
-      delete window.initGoogleMap;
     };
 
-    // Set up callback before checking for existing script
-    window.initGoogleMap = () => {
+    const onGoogleMapsReady = () => {
+      console.log("Google Maps API ready, setting mapReady to true");
       cleanup();
-      initializeMap();
+      setMapReady(true);
     };
+
+    // Check if Google Maps is already loaded
+    if (window.google?.maps) {
+      console.log("Google Maps already loaded");
+      onGoogleMapsReady();
+      return;
+    }
 
     const existingScript = document.getElementById('google-maps-script');
     
     if (existingScript) {
-      // Script exists - wait for google.maps to be available
-      if (window.google?.maps) {
+      console.log("Script exists, polling for google.maps...");
+      // Poll for Google Maps to become available
+      checkInterval = setInterval(() => {
+        if (window.google?.maps) {
+          onGoogleMapsReady();
+        }
+      }, 100);
+      
+      // Timeout after 10 seconds
+      timeoutId = setTimeout(() => {
         cleanup();
-        initializeMap();
-      } else {
-        // Poll for Google Maps to become available
-        checkInterval = setInterval(() => {
-          if (window.google?.maps) {
-            cleanup();
-            initializeMap();
-          }
-        }, 100);
-        
-        // Timeout after 10 seconds
-        timeoutId = setTimeout(() => {
-          cleanup();
-          console.error("Google Maps failed to load within timeout");
-          toast.error("Erro ao carregar Google Maps. Recarregue a página.");
-          setIsLoading(false);
-        }, 10000);
-      }
+        console.error("Google Maps failed to load within timeout");
+        toast.error("Erro ao carregar Google Maps. Recarregue a página.");
+        setIsLoading(false);
+      }, 10000);
+      
       return cleanup;
     }
 
+    // Set up callback for new script
+    window.initGoogleMap = () => {
+      console.log("initGoogleMap callback fired");
+      delete window.initGoogleMap;
+      onGoogleMapsReady();
+    };
+
     // Create new script
+    console.log("Creating new Google Maps script...");
     const script = document.createElement('script');
     script.id = 'google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initGoogleMap`;
@@ -125,6 +138,7 @@ export default function GoogleRouteMap() {
     
     script.onerror = () => {
       cleanup();
+      delete window.initGoogleMap;
       console.error("Failed to load Google Maps script");
       toast.error("Erro ao carregar Google Maps");
       setIsLoading(false);
@@ -136,18 +150,26 @@ export default function GoogleRouteMap() {
     timeoutId = setTimeout(() => {
       if (!window.google?.maps) {
         cleanup();
+        delete window.initGoogleMap;
         console.error("Google Maps script timeout");
         toast.error("Tempo esgotado ao carregar Google Maps");
         setIsLoading(false);
       }
     }, 15000);
 
-    return cleanup;
+    return () => {
+      cleanup();
+      delete window.initGoogleMap;
+    };
   }, [apiKey]);
 
-  const initializeMap = useCallback(() => {
-    if (!mapRef.current || !window.google) return;
+  // Initialize map when Google Maps is ready and mapRef is available
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    if (mapInstanceRef.current) return; // Already initialized
 
+    console.log("Initializing map...");
+    
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: { lat: -23.55052, lng: -46.633309 }, // São Paulo
       zoom: 12,
@@ -171,8 +193,9 @@ export default function GoogleRouteMap() {
       },
     });
 
+    console.log("Map initialized, loading deliveries...");
     loadDeliveries();
-  }, []);
+  }, [mapReady]);
 
   const loadDeliveries = async () => {
     try {
