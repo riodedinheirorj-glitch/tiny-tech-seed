@@ -457,21 +457,20 @@ export default function GoogleRouteMap() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando mapa...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative h-screen w-full">
-      {/* Map Container */}
+      {/* Map Container - SEMPRE renderizado para mapRef estar disponível */}
       <div ref={mapRef} className="absolute inset-0" />
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background z-50">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Carregando mapa...</p>
+          </div>
+        </div>
+      )}
 
       {/* Top Controls */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
